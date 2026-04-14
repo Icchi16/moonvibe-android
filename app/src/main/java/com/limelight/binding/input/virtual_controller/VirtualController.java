@@ -16,6 +16,7 @@ import android.widget.Toast;
 import com.limelight.LimeLog;
 import com.limelight.R;
 import com.limelight.binding.input.ControllerHandler;
+import com.limelight.preferences.PreferenceConfiguration;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -42,6 +43,7 @@ public class VirtualController {
     private final ControllerHandler controllerHandler;
     private final Context context;
     private final Handler handler;
+    private final PreferenceConfiguration prefConfig;
 
     private final Runnable delayedRetransmitRunnable = new Runnable() {
         @Override
@@ -59,11 +61,16 @@ public class VirtualController {
 
     private List<VirtualControllerElement> elements = new ArrayList<>();
 
-    public VirtualController(final ControllerHandler controllerHandler, FrameLayout layout, final Context context) {
+    public VirtualController(final ControllerHandler controllerHandler, FrameLayout layout, final Context context, PreferenceConfiguration prefConfig) {
         this.controllerHandler = controllerHandler;
         this.frame_layout = layout;
         this.context = context;
         this.handler = new Handler(Looper.getMainLooper());
+        this.prefConfig = prefConfig;
+
+        // Allow snap lines to be drawn outside of button bounds
+        this.frame_layout.setClipChildren(false);
+        this.frame_layout.setClipToPadding(false);
 
         buttonConfigure = new Button(context);
         buttonConfigure.setAlpha(0.25f);
@@ -89,8 +96,14 @@ public class VirtualController {
                 Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
 
                 buttonConfigure.invalidate();
+                frame_layout.invalidate(); // Redraw snap lines if any
 
                 for (VirtualControllerElement element : elements) {
+                    if (element instanceof AnalogStick && ((AnalogStick) element).isFloatingMode()) {
+                        // For floating sticks, they might be invisible in active mode.
+                        // Force a redraw when entering/exiting config mode.
+                        element.invalidate();
+                    }
                     element.invalidate();
                 }
             }
@@ -146,6 +159,10 @@ public class VirtualController {
         return elements;
     }
 
+    public PreferenceConfiguration getPrefConfig() {
+        return prefConfig;
+    }
+
     private static final void _DBG(String text) {
         if (_PRINT_DEBUG_INFORMATION) {
             LimeLog.info("VirtualController: " + text);
@@ -153,6 +170,7 @@ public class VirtualController {
     }
 
     public void refreshLayout() {
+        frame_layout.invalidate(); // Request a redraw for snap lines
         removeElements();
 
         DisplayMetrics screen = context.getResources().getDisplayMetrics();

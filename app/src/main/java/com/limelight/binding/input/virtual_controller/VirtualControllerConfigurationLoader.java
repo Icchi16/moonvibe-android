@@ -171,11 +171,11 @@ public class VirtualControllerConfigurationLoader {
     private static final int DPAD_BASE_Y = 41;
     private static final int DPAD_SIZE = 30;
 
-    private static final int ANALOG_L_BASE_X = 6;
-    private static final int ANALOG_L_BASE_Y = 4;
-    private static final int ANALOG_R_BASE_X = 98;
-    private static final int ANALOG_R_BASE_Y = 42;
-    private static final int ANALOG_SIZE = 26;
+    private static final int ANALOG_L_BASE_X = 0;
+    private static final int ANALOG_L_BASE_Y = 50;
+    private static final int ANALOG_R_BASE_X = 110;
+    private static final int ANALOG_R_BASE_Y = 50;
+    private static final int ANALOG_SIZE = 50;
 
     private static final int L3_R3_BASE_Y = 60;
 
@@ -204,6 +204,23 @@ public class VirtualControllerConfigurationLoader {
 
         if (!config.onlyL3R3)
         {
+            int analogSizeW = config.oscFloatingJoystick ? screen.widthPixels / 2 : screenScale(ANALOG_SIZE, height);
+            int analogSizeH = config.oscFloatingJoystick ? screen.heightPixels : screenScale(ANALOG_SIZE, height);
+
+            controller.addElement(createLeftStick(controller, context),
+                    config.oscFloatingJoystick ? 0 : screenScale(ANALOG_L_BASE_X, height),
+                    config.oscFloatingJoystick ? 0 : screenScale(ANALOG_L_BASE_Y, height),
+                    analogSizeW,
+                    analogSizeH
+            );
+
+            controller.addElement(createRightStick(controller, context),
+                    config.oscFloatingJoystick ? screen.widthPixels / 2 : screenScale(ANALOG_R_BASE_X, height) + rightDisplacement,
+                    config.oscFloatingJoystick ? 0 : screenScale(ANALOG_R_BASE_Y, height),
+                    analogSizeW,
+                    analogSizeH
+            );
+
             controller.addElement(createDigitalPad(controller, context),
                     screenScale(DPAD_BASE_X, height),
                     screenScale(DPAD_BASE_Y, height),
@@ -285,20 +302,6 @@ public class VirtualControllerConfigurationLoader {
                     screenScale(TRIGGER_HEIGHT, height)
             );
 
-            controller.addElement(createLeftStick(controller, context),
-                    screenScale(ANALOG_L_BASE_X, height),
-                    screenScale(ANALOG_L_BASE_Y, height),
-                    screenScale(ANALOG_SIZE, height),
-                    screenScale(ANALOG_SIZE, height)
-            );
-
-            controller.addElement(createRightStick(controller, context),
-                    screenScale(ANALOG_R_BASE_X, height) + rightDisplacement,
-                    screenScale(ANALOG_R_BASE_Y, height),
-                    screenScale(ANALOG_SIZE, height),
-                    screenScale(ANALOG_SIZE, height)
-            );
-
             controller.addElement(createDigitalButton(
                     VirtualControllerElement.EID_BACK,
                     ControllerPacket.BACK_FLAG, 0, 2, "BACK", -1, controller, context),
@@ -353,9 +356,11 @@ public class VirtualControllerConfigurationLoader {
     public static void saveProfile(final VirtualController controller,
                                    final Context context) {
         SharedPreferences.Editor prefEditor = context.getSharedPreferences(OSC_PREFERENCE, Activity.MODE_PRIVATE).edit();
+        PreferenceConfiguration config = PreferenceConfiguration.readPreferences(context);
+        String prefix = config.oscFloatingJoystick ? "FL_" : "";
 
         for (VirtualControllerElement element : controller.getElements()) {
-            String prefKey = ""+element.elementId;
+            String prefKey = prefix + element.elementId;
             try {
                 prefEditor.putString(prefKey, element.getConfiguration().toString());
             } catch (JSONException e) {
@@ -368,9 +373,11 @@ public class VirtualControllerConfigurationLoader {
 
     public static void loadFromPreferences(final VirtualController controller, final Context context) {
         SharedPreferences pref = context.getSharedPreferences(OSC_PREFERENCE, Activity.MODE_PRIVATE);
+        PreferenceConfiguration config = PreferenceConfiguration.readPreferences(context);
+        String prefix = config.oscFloatingJoystick ? "FL_" : "";
 
         for (VirtualControllerElement element : controller.getElements()) {
-            String prefKey = ""+element.elementId;
+            String prefKey = prefix + element.elementId;
 
             String jsonConfig = pref.getString(prefKey, null);
             if (jsonConfig != null) {

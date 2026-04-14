@@ -8,7 +8,10 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.util.DisplayMetrics;
 import android.view.MotionEvent;
+
+import com.limelight.preferences.PreferenceConfiguration;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,6 +42,10 @@ public class AnalogStick extends VirtualControllerElement {
      * touch down time until the deadzone is lifted to allow precise movements with the analog sticks
      */
     public final static long timeoutDeadzone = 150;
+
+    private boolean floatingMode = true;
+    private float summonedCenterX = -1;
+    private float summonedCenterY = -1;
 
     /**
      * Listener interface to update registered observers.
@@ -169,6 +176,14 @@ public class AnalogStick extends VirtualControllerElement {
         // reset stick position
         position_stick_x = getWidth() / 2;
         position_stick_y = getHeight() / 2;
+
+        if (controller.getPrefConfig() != null) {
+            this.floatingMode = controller.getPrefConfig().oscFloatingJoystick;
+        }
+    }
+
+    public boolean isFloatingMode() {
+        return floatingMode;
     }
 
     public void addAnalogStickListener(AnalogStickListener listener) {
@@ -209,39 +224,85 @@ public class AnalogStick extends VirtualControllerElement {
 
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
-        // calculate new radius sizes depending
-        radius_complete = getPercent(getCorrectWidth() / 2, 100) - 2 * getDefaultStrokeWidth();
-        radius_dead_zone = getPercent(getCorrectWidth() / 2, 30);
-        radius_analog_stick = getPercent(getCorrectWidth() / 2, 20);
+        DisplayMetrics dm = getResources().getDisplayMetrics();
+        PreferenceConfiguration config = virtualController.getPrefConfig();
+
+        // D-pad is 30 units in a 72 unit height grid. Radius is 15 units.
+        float dpadRadius = (dm.heightPixels / 72f) * 15f;
+
+        if (floatingMode) {
+            // Use preference for floating joystick size if available, otherwise default to D-pad size
+            if (config != null) {
+                radius_complete = (dm.heightPixels / 72f) * (config.oscFloatingJoystickSize / 2f);
+            } else {
+                radius_complete = dpadRadius;
+            }
+        } else {
+            // In fixed mode, use the element size.
+            radius_complete = getCorrectWidth() * 0.45f;
+        }
+
+        // Refined inner circles per user request:
+        // Center deadzone (very small)
+        radius_dead_zone = radius_complete * 0.05f;
+        // Tracking stick (the blue circle) - updated to 25%
+        radius_analog_stick = radius_complete * 0.25f;
 
         super.onSizeChanged(w, h, oldw, oldh);
     }
 
+    private float getCenterX() {
+        return (floatingMode && summonedCenterX != -1) ? summonedCenterX : getWidth() / 2.0f;
+    }
+
+    private float getCenterY() {
+        return (floatingMode && summonedCenterY != -1) ? summonedCenterY : getHeight() / 2.0f;
+    }
+
     @Override
     protected void onElementDraw(Canvas canvas) {
+        boolean isConfigMode = virtualController.getControllerMode() != VirtualController.ControllerMode.Active;
+
+        // In floating mode, only draw when pressed, unless we are in configuration mode.
+        // In fixed mode, always draw.
+        if (floatingMode && !isPressed() && !isConfigMode) {
+            return;
+        }
+
         // set transparent background
         canvas.drawColor(Color.TRANSPARENT);
+
+        if (isConfigMode && floatingMode) {
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(0x1100FF00); // Faint green background
+            canvas.drawRect(0, 0, getWidth(), getHeight(), paint);
+        }
 
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeWidth(getDefaultStrokeWidth());
 
+        float centerX = getCenterX();
+        float centerY = getCenterY();
+
         // draw outer circle
-        if (!isPressed() || click_state == CLICK_STATE.SINGLE) {
+        if (click_state == CLICK_STATE.SINGLE) {
             paint.setColor(getDefaultColor());
         } else {
             paint.setColor(pressedColor);
         }
-        canvas.drawCircle(getWidth() / 2, getHeight() / 2, radius_complete, paint);
+        canvas.drawCircle(centerX, centerY, radius_complete, paint);
 
         paint.setColor(getDefaultColor());
-        // draw dead zone
-        canvas.drawCircle(getWidth() / 2, getHeight() / 2, radius_dead_zone, paint);
+        // draw dead zone (inner center circle) - using a filled style for better visibility if small
+        paint.setStyle(Paint.Style.FILL);
+        canvas.drawCircle(centerX, centerY, radius_dead_zone, paint);
 
         // draw stick depending on state
+        paint.setStyle(Paint.Style.STROKE);
         switch (stick_state) {
             case NO_MOVEMENT: {
                 paint.setColor(getDefaultColor());
-                canvas.drawCircle(getWidth() / 2, getHeight() / 2, radius_analog_stick, paint);
+                canvas.drawCircle(centerX, centerY, radius_analog_stick, paint);
                 break;
             }
             case MOVED_IN_DEAD_ZONE:
@@ -262,8 +323,8 @@ public class AnalogStick extends VirtualControllerElement {
         float correlated_x = (float) (Math.cos(Math.PI / 2 - movement_angle) * (movement_radius));
 
         // update positions
-        position_stick_x = getWidth() / 2 - correlated_x;
-        position_stick_y = getHeight() / 2 - correlated_y;
+        position_stick_x = getCenterX() - correlated_x;
+        position_stick_y = getCenterY() - correlated_y;
 
         // Stay active even if we're back in the deadzone because we know the user is actively
         // giving analog stick input and we don't want to snap back into the deadzone.
@@ -285,16 +346,24 @@ public class AnalogStick extends VirtualControllerElement {
         // save last click state
         CLICK_STATE lastClickState = click_state;
 
+        if (floatingMode && event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+            summonedCenterX = event.getX();
+            summonedCenterY = event.getY();
+        }
+
+        float centerX = getCenterX();
+        float centerY = getCenterY();
+
         // get absolute way for each axis
-        relative_x = -(getWidth() / 2 - event.getX());
-        relative_y = -(getHeight() / 2 - event.getY());
+        relative_x = -(centerX - event.getX());
+        relative_y = -(centerY - event.getY());
 
         // get radius and angel of movement from center
         movement_radius = getMovementRadius(relative_x, relative_y);
         movement_angle = getAngle(relative_x, relative_y);
 
         // pass touch event to parent if out of outer circle
-        if (movement_radius > radius_complete && !isPressed())
+        if (!floatingMode && movement_radius > radius_complete && !isPressed())
             return false;
 
         // chop radius if out of outer circle or near the edge
@@ -327,6 +396,8 @@ public class AnalogStick extends VirtualControllerElement {
             case MotionEvent.ACTION_CANCEL:
             case MotionEvent.ACTION_UP: {
                 setPressed(false);
+                summonedCenterX = -1;
+                summonedCenterY = -1;
                 break;
             }
         }

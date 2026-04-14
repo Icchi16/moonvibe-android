@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.os.Build;
 import android.preference.DialogPreference;
+import android.preference.PreferenceManager;
 import android.util.AttributeSet;
 import android.widget.Toast;
 
@@ -32,6 +33,10 @@ public class ConfirmDeleteOscPreference extends DialogPreference {
     public void onClick(DialogInterface dialog, int which) {
         if (which == DialogInterface.BUTTON_POSITIVE) {
             getContext().getSharedPreferences(OSC_PREFERENCE, Context.MODE_PRIVATE).edit().clear().apply();
+            // Also reset floating joystick size to default
+            PreferenceManager.getDefaultSharedPreferences(getContext()).edit()
+                    .putInt(PreferenceConfiguration.OSC_FLOATING_JOYSTICK_SIZE_PREF_STRING, PreferenceConfiguration.DEFAULT_OSC_FLOATING_JOYSTICK_SIZE)
+                    .apply();
             Toast.makeText(getContext(), R.string.toast_reset_osc_success, Toast.LENGTH_SHORT).show();
         }
     }

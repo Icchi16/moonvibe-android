@@ -211,6 +211,12 @@
     <string name="summary_only_l3r3">Hide all virtual buttons except L3 and R3</string>
     <string name="title_show_guide_button">Show Guide Button</string>
     <string name="summary_show_guide_button">Show the guide button on screen</string>
+    <string name="title_osc_floating_joystick">Floating joystick</string>
+    <string name="summary_osc_floating_joystick">Summon joystick at touch location (Steam Link style)</string>
+    <string name="title_osc_floating_joystick_size">Floating joystick size</string>
+    <string name="summary_osc_floating_joystick_size">Adjust the size of the floating joystick</string>
+    <string name="title_osc_snap">Snap to position</string>
+    <string name="summary_osc_snap">Snap controls to edges and centers of other controls while moving</string>
     <string name="title_reset_osc">Clear saved on-screen controls layout</string>
     <string name="summary_reset_osc">Resets all on-screen controls to their default size and position</string>
     <string name="dialog_title_reset_osc">Reset Layout</string>

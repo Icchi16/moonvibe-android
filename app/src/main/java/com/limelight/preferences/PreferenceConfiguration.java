@@ -68,6 +68,9 @@ public class PreferenceConfiguration {
     private static final String GAMEPAD_TOUCHPAD_AS_MOUSE_PREF_STRING = "checkbox_gamepad_touchpad_as_mouse";
     private static final String GAMEPAD_MOTION_SENSORS_PREF_STRING = "checkbox_gamepad_motion_sensors";
     private static final String GAMEPAD_MOTION_FALLBACK_PREF_STRING = "checkbox_gamepad_motion_fallback";
+    public static final String OSC_FLOATING_JOYSTICK_PREF_STRING = "checkbox_osc_floating_joystick";
+    public static final String OSC_SNAP_PREF_STRING = "checkbox_osc_snap";
+    public static final String OSC_FLOATING_JOYSTICK_SIZE_PREF_STRING = "seekbar_osc_floating_joystick_size";
 
     static final String DEFAULT_RESOLUTION = "1280x720";
     static final String DEFAULT_FPS = "60";
@@ -108,6 +111,8 @@ public class PreferenceConfiguration {
     private static final boolean DEFAULT_GAMEPAD_TOUCHPAD_AS_MOUSE = false;
     private static final boolean DEFAULT_GAMEPAD_MOTION_SENSORS = true;
     private static final boolean DEFAULT_GAMEPAD_MOTION_FALLBACK = false;
+    public static final boolean DEFAULT_OSC_FLOATING_JOYSTICK = true;
+    public static final int DEFAULT_OSC_FLOATING_JOYSTICK_SIZE = 30;
 
     public static final int FRAME_PACING_MIN_LATENCY = 0;
     public static final int FRAME_PACING_BALANCED = 1;
@@ -155,6 +160,9 @@ public class PreferenceConfiguration {
     public boolean gamepadMotionSensors;
     public boolean gamepadTouchpadAsMouse;
     public boolean gamepadMotionSensorsFallbackToDevice;
+    public boolean oscFloatingJoystick;
+    public boolean oscSnap;
+    public int oscFloatingJoystickSize;
 
     public static boolean isNativeResolution(int width, int height) {
         // It's not a native resolution if it matches an existing resolution option
@@ -601,6 +609,9 @@ public class PreferenceConfiguration {
         config.gamepadTouchpadAsMouse = prefs.getBoolean(GAMEPAD_TOUCHPAD_AS_MOUSE_PREF_STRING, DEFAULT_GAMEPAD_TOUCHPAD_AS_MOUSE);
         config.gamepadMotionSensors = prefs.getBoolean(GAMEPAD_MOTION_SENSORS_PREF_STRING, DEFAULT_GAMEPAD_MOTION_SENSORS);
         config.gamepadMotionSensorsFallbackToDevice = prefs.getBoolean(GAMEPAD_MOTION_FALLBACK_PREF_STRING, DEFAULT_GAMEPAD_MOTION_FALLBACK);
+        config.oscFloatingJoystick = prefs.getBoolean(OSC_FLOATING_JOYSTICK_PREF_STRING, DEFAULT_OSC_FLOATING_JOYSTICK);
+        config.oscSnap = prefs.getBoolean(OSC_SNAP_PREF_STRING, true);
+        config.oscFloatingJoystickSize = prefs.getInt(OSC_FLOATING_JOYSTICK_SIZE_PREF_STRING, DEFAULT_OSC_FLOATING_JOYSTICK_SIZE);
 
         return config;
     }

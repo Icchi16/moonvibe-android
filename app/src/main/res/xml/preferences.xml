@@ -172,6 +172,26 @@
             android:key="checkbox_show_guide_button"
             android:summary="@string/summary_show_guide_button"
             android:title="@string/title_show_guide_button" />
+        <CheckBoxPreference
+            android:key="checkbox_osc_floating_joystick"
+            android:dependency="checkbox_show_onscreen_controls"
+            android:title="@string/title_osc_floating_joystick"
+            android:summary="@string/summary_osc_floating_joystick"
+            android:defaultValue="true" />
+        <CheckBoxPreference
+            android:key="checkbox_osc_snap"
+            android:dependency="checkbox_show_onscreen_controls"
+            android:title="@string/title_osc_snap"
+            android:summary="@string/summary_osc_snap"
+            android:defaultValue="true" />
+        <com.limelight.preferences.SeekBarPreference
+            android:key="seekbar_osc_floating_joystick_size"
+            android:dependency="checkbox_osc_floating_joystick"
+            android:defaultValue="30"
+            android:max="100"
+            seekbar:min="10"
+            android:title="@string/title_osc_floating_joystick_size"
+            android:summary="@string/summary_osc_floating_joystick_size" />
         <com.limelight.preferences.SeekBarPreference
             android:key="seekbar_osc_opacity"
             android:dependency="checkbox_show_onscreen_controls"

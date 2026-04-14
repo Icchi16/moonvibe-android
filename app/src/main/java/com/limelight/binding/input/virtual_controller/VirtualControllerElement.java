@@ -8,6 +8,7 @@ import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
 import android.util.DisplayMetrics;
 import android.view.MotionEvent;
@@ -69,9 +70,62 @@ public abstract class VirtualControllerElement extends View {
         this.elementId = elementId;
     }
 
+    private float snapX = -1;
+    private float snapY = -1;
+    private java.util.List<Float> snapLinesX = new java.util.ArrayList<>();
+    private java.util.List<Float> snapLinesY = new java.util.ArrayList<>();
+
     protected void moveElement(int pressed_x, int pressed_y, int x, int y) {
-        int newPos_x = (int) getX() + x - pressed_x;
-        int newPos_y = (int) getY() + y - pressed_y;
+        // x and y are the coordinates of the current touch relative to the view
+        // pressed_x and pressed_y were the touch coordinates at down time
+        // The delta movement is (x - pressed_x, y - pressed_y)
+        int deltaX = x - pressed_x;
+        int deltaY = y - pressed_y;
+
+        int newPos_x = (int) getX() + deltaX;
+        int newPos_y = (int) getY() + deltaY;
+
+        snapLinesX.clear();
+        snapLinesY.clear();
+        snapX = -1;
+        snapY = -1;
+
+        if (virtualController.getPrefConfig().oscSnap) {
+            int magneticThreshold = 20; // Magnetic pull once within snap range
+
+            // Ability to snap to original position first
+            if (originalPos_x != -1 && originalPos_y != -1) {
+                if (Math.abs(newPos_x - originalPos_x) < magneticThreshold) {
+                   newPos_x = originalPos_x;
+                   snapX = originalPos_x + getWidth() / 2f; // Use center for line
+                }
+                if (Math.abs(newPos_y - originalPos_y) < magneticThreshold) {
+                   newPos_y = originalPos_y;
+                   snapY = originalPos_y + getHeight() / 2f; // Use center for line
+                }
+            }
+
+            // Snap to horizontal/vertical centers of ANY other button
+            for (VirtualControllerElement element : virtualController.getElements()) {
+                if (element == this) continue;
+
+                float elementCenterX = element.getX() + element.getWidth() / 2f;
+                float elementCenterY = element.getY() + element.getHeight() / 2f;
+
+                // Snap to horizontal center
+                if (Math.abs((newPos_x + getWidth() / 2f) - elementCenterX) < magneticThreshold) {
+                    newPos_x = (int) (elementCenterX - getWidth() / 2f);
+                    snapLinesX.add(elementCenterX);
+                    snapX = elementCenterX;
+                }
+                // Snap to vertical center
+                if (Math.abs((newPos_y + getHeight() / 2f) - elementCenterY) < magneticThreshold) {
+                    newPos_y = (int) (elementCenterY - getHeight() / 2f);
+                    snapLinesY.add(elementCenterY);
+                    snapY = elementCenterY;
+                }
+            }
+        }
 
         FrameLayout.LayoutParams layoutParams = (FrameLayout.LayoutParams) getLayoutParams();
 
@@ -81,6 +135,10 @@ public abstract class VirtualControllerElement extends View {
         layoutParams.bottomMargin = 0;
 
         requestLayout();
+        // Trigger a redraw of the parent to ensure snap lines are visible even outside this view's bounds
+        if (getParent() instanceof View) {
+            ((View) getParent()).invalidate();
+        }
     }
 
     protected void resizeElement(int pressed_x, int pressed_y, int width, int height) {
@@ -99,17 +157,47 @@ public abstract class VirtualControllerElement extends View {
     protected void onDraw(Canvas canvas) {
         onElementDraw(canvas);
 
-        if (currentMode != Mode.Normal) {
-            paint.setColor(configSelectedColor);
-            paint.setStrokeWidth(getDefaultStrokeWidth());
+        if (virtualController.getControllerMode() == VirtualController.ControllerMode.MoveButtons ||
+                virtualController.getControllerMode() == VirtualController.ControllerMode.ResizeButtons) {
             paint.setStyle(Paint.Style.STROKE);
+            float strokeWidth = getDefaultStrokeWidth();
+            paint.setStrokeWidth(strokeWidth);
 
-            canvas.drawRect(paint.getStrokeWidth(), paint.getStrokeWidth(),
-                    getWidth()-paint.getStrokeWidth(), getHeight()-paint.getStrokeWidth(),
-                    paint);
+            if (currentMode == Mode.Normal) {
+                paint.setColor(configMoveColor);
+            } else {
+                paint.setColor(configSelectedColor);
+            }
+
+            int inset = (int) strokeWidth / 2;
+            canvas.drawRect(inset, inset, getWidth() - inset, getHeight() - inset, paint);
         }
 
-        super.onDraw(canvas);
+        // Draw snap lines
+        if (currentMode == Mode.Move) {
+            paint.setColor(Color.WHITE);
+            paint.setStrokeWidth(2);
+            paint.setStyle(Paint.Style.STROKE);
+
+            for (Float xPos : snapLinesX) {
+                float localSnapX = xPos - getX();
+                canvas.drawLine(localSnapX, -5000, localSnapX, 5000, paint);
+            }
+            for (Float yPos : snapLinesY) {
+                float localSnapY = yPos - getY();
+                canvas.drawLine(-5000, localSnapY, 5000, localSnapY, paint);
+            }
+
+            // Also draw lines for original position snap if active
+            if (snapX != -1 && !snapLinesX.contains(snapX)) {
+                float localSnapX = snapX - getX();
+                canvas.drawLine(localSnapX, -5000, localSnapX, 5000, paint);
+            }
+            if (snapY != -1 && !snapLinesY.contains(snapY)) {
+                float localSnapY = snapY - getY();
+                canvas.drawLine(-5000, localSnapY, 5000, localSnapY, paint);
+            }
+        }
     }
 
     /*
@@ -144,17 +232,33 @@ public abstract class VirtualControllerElement extends View {
     }
     */
 
+    private int originalPos_x = -1;
+    private int originalPos_y = -1;
+
     protected void actionEnableMove() {
         currentMode = Mode.Move;
+        originalPos_x = (int) getX();
+        originalPos_y = (int) getY();
+        invalidate();
     }
 
     protected void actionEnableResize() {
         currentMode = Mode.Resize;
+        invalidate();
     }
 
     protected void actionCancel() {
+        // Reset snap state
+        snapX = -1;
+        snapY = -1;
+        snapLinesX.clear();
+        snapLinesY.clear();
+
         currentMode = Mode.Normal;
         invalidate();
+        if (getParent() instanceof View) {
+            ((View) getParent()).invalidate();
+        }
     }
 
     protected int getDefaultColor() {
