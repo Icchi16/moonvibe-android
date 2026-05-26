@@ -213,6 +213,8 @@
     <string name="summary_show_guide_button">Show the guide button on screen</string>
     <string name="title_osc_floating_joystick">Floating joystick</string>
     <string name="summary_osc_floating_joystick">Summon joystick at touch location (Steam Link style)</string>
+    <string name="title_osc_dynamic_center">Dynamic joystick center</string>
+    <string name="summary_osc_dynamic_center">Move the joystick center when the finger moves beyond its range (camera style)</string>
     <string name="title_osc_floating_joystick_size">Floating joystick size</string>
     <string name="summary_osc_floating_joystick_size">Adjust the size of the floating joystick</string>
     <string name="title_osc_snap">Snap to position</string>

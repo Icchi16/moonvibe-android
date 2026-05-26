@@ -1486,6 +1486,16 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         inputManager.toggleSoftInput(0, 0);
     }
 
+    public void sendKeyboardEvent(short translated, byte keyAction, byte modifiers) {
+        if (conn != null) {
+            conn.sendKeyboardInput(translated, keyAction, modifiers, (byte) 0);
+        }
+    }
+
+    public KeyboardTranslator getKeyboardTranslator() {
+        return keyboardTranslator;
+    }
+
     private byte getLiTouchTypeFromEvent(MotionEvent event) {
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:

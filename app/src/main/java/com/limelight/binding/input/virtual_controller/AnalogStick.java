@@ -362,6 +362,23 @@ public class AnalogStick extends VirtualControllerElement {
         movement_radius = getMovementRadius(relative_x, relative_y);
         movement_angle = getAngle(relative_x, relative_y);
 
+        float max_movement = radius_complete - radius_analog_stick;
+        if (floatingMode && isPressed() && elementId == EID_RS && virtualController.getPrefConfig().oscDynamicCenter && movement_radius > max_movement) {
+            float overflow = (float) (movement_radius - max_movement);
+            float shift_x = (float) -(Math.cos(Math.PI / 2 - movement_angle) * overflow);
+            float shift_y = (float) -(Math.sin(Math.PI / 2 - movement_angle) * overflow);
+
+            summonedCenterX += shift_x;
+            summonedCenterY += shift_y;
+
+            // Recalculate movement relative to new center
+            centerX = getCenterX();
+            centerY = getCenterY();
+            relative_x = -(centerX - event.getX());
+            relative_y = -(centerY - event.getY());
+            movement_radius = getMovementRadius(relative_x, relative_y);
+        }
+
         // pass touch event to parent if out of outer circle
         if (!floatingMode && movement_radius > radius_complete && !isPressed())
             return false;

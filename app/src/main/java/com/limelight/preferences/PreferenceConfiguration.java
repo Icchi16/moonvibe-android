@@ -71,6 +71,7 @@ public class PreferenceConfiguration {
     public static final String OSC_FLOATING_JOYSTICK_PREF_STRING = "checkbox_osc_floating_joystick";
     public static final String OSC_SNAP_PREF_STRING = "checkbox_osc_snap";
     public static final String OSC_FLOATING_JOYSTICK_SIZE_PREF_STRING = "seekbar_osc_floating_joystick_size";
+    public static final String OSC_DYNAMIC_CENTER_PREF_STRING = "checkbox_osc_dynamic_center";
 
     static final String DEFAULT_RESOLUTION = "1280x720";
     static final String DEFAULT_FPS = "60";
@@ -113,6 +114,7 @@ public class PreferenceConfiguration {
     private static final boolean DEFAULT_GAMEPAD_MOTION_FALLBACK = false;
     public static final boolean DEFAULT_OSC_FLOATING_JOYSTICK = true;
     public static final int DEFAULT_OSC_FLOATING_JOYSTICK_SIZE = 30;
+    public static final boolean DEFAULT_OSC_DYNAMIC_CENTER = false;
 
     public static final int FRAME_PACING_MIN_LATENCY = 0;
     public static final int FRAME_PACING_BALANCED = 1;
@@ -163,6 +165,7 @@ public class PreferenceConfiguration {
     public boolean oscFloatingJoystick;
     public boolean oscSnap;
     public int oscFloatingJoystickSize;
+    public boolean oscDynamicCenter;
 
     public static boolean isNativeResolution(int width, int height) {
         // It's not a native resolution if it matches an existing resolution option
@@ -612,6 +615,7 @@ public class PreferenceConfiguration {
         config.oscFloatingJoystick = prefs.getBoolean(OSC_FLOATING_JOYSTICK_PREF_STRING, DEFAULT_OSC_FLOATING_JOYSTICK);
         config.oscSnap = prefs.getBoolean(OSC_SNAP_PREF_STRING, true);
         config.oscFloatingJoystickSize = prefs.getInt(OSC_FLOATING_JOYSTICK_SIZE_PREF_STRING, DEFAULT_OSC_FLOATING_JOYSTICK_SIZE);
+        config.oscDynamicCenter = prefs.getBoolean(OSC_DYNAMIC_CENTER_PREF_STRING, DEFAULT_OSC_DYNAMIC_CENTER);
 
         return config;
     }

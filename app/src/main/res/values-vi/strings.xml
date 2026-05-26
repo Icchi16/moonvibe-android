@@ -39,6 +39,12 @@
     <string name="title_checkbox_vibrate_osc">Bật rung</string>
     <string name="summary_checkbox_show_onscreen_controls">Hiện bộ điều khiển ảo trên màn hình cảm ứng</string>
     <string name="title_checkbox_show_onscreen_controls">Hiện điều khiển trên màn hình</string>
+    <string name="title_osc_floating_joystick">Cần điều khiển nổi</string>
+    <string name="summary_osc_floating_joystick">Hiển thị cần điều khiển tại vị trí chạm (giống Steam Link)</string>
+    <string name="title_osc_dynamic_center">Tâm cần điều khiển linh hoạt</string>
+    <string name="summary_osc_dynamic_center">Di chuyển tâm cần điều khiển khi ngón tay vượt ra ngoài phạm vi (kiểu điều khiển camera)</string>
+    <string name="title_osc_floating_joystick_size">Kích thước cần điều khiển nổi</string>
+    <string name="summary_osc_floating_joystick_size">Điều chỉnh kích thước của cần điều khiển nổi</string>
     <string name="category_on_screen_controls_settings">Cài đặt điều khiển trên màn hình</string>
     <string name="summary_checkbox_flip_face_buttons">Chuyển các nút ở mặt A/B và X/Y đối với tay cầm điều khiển và điều khiển trên màn hình</string>
     <string name="title_checkbox_flip_face_buttons">Đảo các nút ở mặt</string>

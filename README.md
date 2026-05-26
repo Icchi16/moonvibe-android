@@ -1,7 +1,11 @@
-# Moonlight Android
+# Moonvibe
 
-[![AppVeyor Build Status](https://ci.appveyor.com/api/projects/status/232a8tadrrn8jv0k/branch/master?svg=true)](https://ci.appveyor.com/project/cgutman/moonlight-android/branch/master)
-[![Translation Status](https://hosted.weblate.org/widgets/moonlight/-/moonlight-android/svg-badge.svg)](https://hosted.weblate.org/projects/moonlight/moonlight-android/)
+Moonvibe is a fork of [Moonlight for Android](https://moonlight-stream.org) that introduces enhanced touch controls.
+
+## New Features
+*   **Floating JoyCons**: The left and right JoyCons now appear dynamically at the position of the user's fingers instead of using fixed positions. This allows for a more comfortable and customizable control layout during gameplay.
+
+---
 
 [Moonlight for Android](https://moonlight-stream.org) is an open source client for NVIDIA GameStream and [Sunshine](https://github.com/LizardByte/Sunshine).
 
@@ -13,19 +17,15 @@ Moonlight also has a [PC client](https://github.com/moonlight-stream/moonlight-q
 You can follow development on our [Discord server](https://moonlight-stream.org/discord) and help translate Moonlight into your language on [Weblate](https://hosted.weblate.org/projects/moonlight/moonlight-android/).
 
 ## Downloads
-* [Google Play Store](https://play.google.com/store/apps/details?id=com.limelight)
-* [Amazon App Store](https://www.amazon.com/gp/product/B00JK4MFN2)
-* [F-Droid](https://f-droid.org/packages/com.limelight)
-* [APK](https://github.com/moonlight-stream/moonlight-android/releases)
+* [APK Releases](https://github.com/moonlight-stream/moonlight-android/releases) (Original Moonlight)
 
 ## Building
 * Install Android Studio and the Android NDK
-* Run ‘git submodule update --init --recursive’ from within moonlight-android/
-* In moonlight-android/, create a file called ‘local.properties’. Add an ‘ndk.dir=’ property to the local.properties file and set it equal to your NDK directory.
+* Run ‘git submodule update --init --recursive’ from within moonvibe/
+* In moonvibe/, create a file called ‘local.properties’. Add an ‘ndk.dir=’ property to the local.properties file and set it equal to your NDK directory.
 * Build the APK using Android Studio or gradle
 
 ## Authors
-
 * [Cameron Gutman](https://github.com/cgutman)  
 * [Diego Waxemberg](https://github.com/dwaxemberg)  
 * [Aaron Neyer](https://github.com/Aaronneyer)  

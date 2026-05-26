@@ -9,7 +9,8 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.DisplayMetrics;
 import android.view.View;
-import android.widget.Button;
+import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
@@ -45,6 +46,11 @@ public class VirtualController {
     private final Handler handler;
     private final PreferenceConfiguration prefConfig;
 
+    private boolean isJoystickMode = true;
+    private ImageButton buttonToggleMode = null;
+    private ImageButton buttonKeyboard = null;
+    private VirtualKeyboard virtualKeyboard = null;
+
     private final Runnable delayedRetransmitRunnable = new Runnable() {
         @Override
         public void run() {
@@ -54,12 +60,12 @@ public class VirtualController {
 
     private FrameLayout frame_layout = null;
 
-    ControllerMode currentMode = ControllerMode.Active;
-    ControllerInputContext inputContext = new ControllerInputContext();
+    private ControllerMode currentMode = ControllerMode.Active;
+    private final ControllerInputContext inputContext = new ControllerInputContext();
 
-    private Button buttonConfigure = null;
+    private ImageButton buttonConfigure = null;
 
-    private List<VirtualControllerElement> elements = new ArrayList<>();
+    private final List<VirtualControllerElement> elements = new ArrayList<>();
 
     public VirtualController(final ControllerHandler controllerHandler, FrameLayout layout, final Context context, PreferenceConfiguration prefConfig) {
         this.controllerHandler = controllerHandler;
@@ -72,10 +78,50 @@ public class VirtualController {
         this.frame_layout.setClipChildren(false);
         this.frame_layout.setClipToPadding(false);
 
-        buttonConfigure = new Button(context);
-        buttonConfigure.setAlpha(0.25f);
+        buttonToggleMode = new ImageButton(context);
+        buttonToggleMode.setAlpha(0.6f);
+        buttonToggleMode.setFocusable(false);
+        buttonToggleMode.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+        buttonToggleMode.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        buttonToggleMode.setImageResource(R.drawable.ic_gamepad);
+        buttonToggleMode.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                isJoystickMode = !isJoystickMode;
+                updateElementVisibility();
+                buttonToggleMode.setImageResource(isJoystickMode ? R.drawable.ic_gamepad : R.drawable.ic_mouse);
+            }
+        });
+
+        buttonKeyboard = new ImageButton(context);
+        buttonKeyboard.setAlpha(0.6f);
+        buttonKeyboard.setFocusable(false);
+        buttonKeyboard.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+        buttonKeyboard.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        buttonKeyboard.setImageResource(R.drawable.ic_keyboard);
+        buttonKeyboard.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (virtualKeyboard.getVisibility() == View.VISIBLE) {
+                    virtualKeyboard.setVisibility(View.GONE);
+                } else {
+                    virtualKeyboard.setVisibility(View.VISIBLE);
+                    virtualKeyboard.bringToFront();
+                }
+            }
+        });
+
+        virtualKeyboard = new VirtualKeyboard(context);
+        virtualKeyboard.setVisibility(View.GONE);
+        virtualKeyboard.setClickable(true);
+        virtualKeyboard.setFocusable(true);
+
+        buttonConfigure = new ImageButton(context);
+        buttonConfigure.setAlpha(0.5f);
         buttonConfigure.setFocusable(false);
-        buttonConfigure.setBackgroundResource(R.drawable.ic_settings);
+        buttonConfigure.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+        buttonConfigure.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        buttonConfigure.setImageResource(R.drawable.ic_settings);
         buttonConfigure.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -121,14 +167,23 @@ public class VirtualController {
         }
 
         buttonConfigure.setVisibility(View.INVISIBLE);
+        buttonToggleMode.setVisibility(View.INVISIBLE);
+        buttonKeyboard.setVisibility(View.INVISIBLE);
+        virtualKeyboard.setVisibility(View.GONE);
     }
 
     public void show() {
-        for (VirtualControllerElement element : elements) {
-            element.setVisibility(View.VISIBLE);
-        }
+        updateElementVisibility();
 
         buttonConfigure.setVisibility(View.VISIBLE);
+        buttonToggleMode.setVisibility(View.VISIBLE);
+        buttonKeyboard.setVisibility(View.VISIBLE);
+    }
+
+    private void updateElementVisibility() {
+        for (VirtualControllerElement element : elements) {
+            element.setVisibility(isJoystickMode ? View.VISIBLE : View.INVISIBLE);
+        }
     }
 
     public void removeElements() {
@@ -138,6 +193,9 @@ public class VirtualController {
         elements.clear();
 
         frame_layout.removeView(buttonConfigure);
+        frame_layout.removeView(buttonToggleMode);
+        frame_layout.removeView(buttonKeyboard);
+        frame_layout.removeView(virtualKeyboard);
     }
 
     public void setOpacity(int opacity) {
@@ -175,17 +233,47 @@ public class VirtualController {
 
         DisplayMetrics screen = context.getResources().getDisplayMetrics();
 
-        int buttonSize = (int)(screen.heightPixels*0.06f);
+        // Use a more substantial button size (about 10% of screen height)
+        int buttonSize = (int)(screen.heightPixels * 0.10f);
+        int margin = 20;
+
         FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(buttonSize, buttonSize);
-        params.leftMargin = 15;
-        params.topMargin = 15;
+        params.leftMargin = margin;
+        params.topMargin = margin;
         frame_layout.addView(buttonConfigure, params);
+
+        FrameLayout.LayoutParams toggleParams = new FrameLayout.LayoutParams(buttonSize, buttonSize);
+        toggleParams.leftMargin = margin + buttonSize + margin;
+        toggleParams.topMargin = margin;
+        frame_layout.addView(buttonToggleMode, toggleParams);
+
+        FrameLayout.LayoutParams kbParams = new FrameLayout.LayoutParams(buttonSize, buttonSize);
+        kbParams.leftMargin = margin + buttonSize + margin + buttonSize + margin;
+        kbParams.topMargin = margin;
+        frame_layout.addView(buttonKeyboard, kbParams);
+
+        FrameLayout.LayoutParams vkParams = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT);
+        vkParams.gravity = android.view.Gravity.BOTTOM;
+        frame_layout.addView(virtualKeyboard, vkParams);
+
+        // Ensure buttons are on top
+        buttonConfigure.bringToFront();
+        buttonToggleMode.bringToFront();
+        buttonKeyboard.bringToFront();
 
         // Start with the default layout
         VirtualControllerConfigurationLoader.createDefaultLayout(this, context);
 
         // Apply user preferences onto the default layout
         VirtualControllerConfigurationLoader.loadFromPreferences(this, context);
+
+        // Ensure functional buttons and keyboard are ALWAYS on top of joysticks
+        buttonConfigure.bringToFront();
+        buttonToggleMode.bringToFront();
+        buttonKeyboard.bringToFront();
+        virtualKeyboard.bringToFront();
     }
 
     public ControllerMode getControllerMode() {

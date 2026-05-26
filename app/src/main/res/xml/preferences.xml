@@ -179,6 +179,12 @@
             android:summary="@string/summary_osc_floating_joystick"
             android:defaultValue="true" />
         <CheckBoxPreference
+            android:key="checkbox_osc_dynamic_center"
+            android:dependency="checkbox_osc_floating_joystick"
+            android:title="@string/title_osc_dynamic_center"
+            android:summary="@string/summary_osc_dynamic_center"
+            android:defaultValue="false" />
+        <CheckBoxPreference
             android:key="checkbox_osc_snap"
             android:dependency="checkbox_show_onscreen_controls"
             android:title="@string/title_osc_snap"
