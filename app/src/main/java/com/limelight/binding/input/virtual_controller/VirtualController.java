@@ -47,8 +47,8 @@ public class VirtualController {
     private final PreferenceConfiguration prefConfig;
 
     private boolean isJoystickMode = true;
-    private ImageButton buttonToggleMode = null;
-    private ImageButton buttonKeyboard = null;
+    private ImageButton buttonToggleMode;
+    private ImageButton buttonKeyboard;
     private VirtualKeyboard virtualKeyboard = null;
 
     private final Runnable delayedRetransmitRunnable = new Runnable() {
@@ -58,12 +58,12 @@ public class VirtualController {
         }
     };
 
-    private FrameLayout frame_layout = null;
+    private FrameLayout frame_layout;
 
     private ControllerMode currentMode = ControllerMode.Active;
     private final ControllerInputContext inputContext = new ControllerInputContext();
 
-    private ImageButton buttonConfigure = null;
+    private ImageButton buttonConfigure;
 
     private final List<VirtualControllerElement> elements = new ArrayList<>();
 

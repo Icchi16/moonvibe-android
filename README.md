@@ -21,9 +21,9 @@ You can follow development on our [Discord server](https://moonlight-stream.org/
 
 ## Building
 * Install Android Studio and the Android NDK
-* Run ‘git submodule update --init --recursive’ from within moonvibe/
-* In moonvibe/, create a file called ‘local.properties’. Add an ‘ndk.dir=’ property to the local.properties file and set it equal to your NDK directory.
-* Build the APK using Android Studio or gradle
+* Run `git submodule update --init --recursive` from within the project root
+* Create a file called `local.properties` in the project root. Add an `ndk.dir=` property to the `local.properties` file and set it equal to your NDK directory.
+* Build the APK using Android Studio or Gradle
 
 ## Authors
 * [Cameron Gutman](https://github.com/cgutman)  
@@ -31,5 +31,5 @@ You can follow development on our [Discord server](https://moonlight-stream.org/
 * [Aaron Neyer](https://github.com/Aaronneyer)  
 * [Andrew Hennessy](https://github.com/yetanothername)
 
-Moonlight is the work of students at [Case Western](http://case.edu) and was
-started as a project at [MHacks](http://mhacks.org).
+Moonlight is the work of students at [Case Western](https://case.edu) and was
+started as a project at [MHacks](https://mhacks.org).

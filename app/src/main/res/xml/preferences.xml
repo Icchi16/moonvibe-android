@@ -184,6 +184,25 @@
             android:title="@string/title_osc_dynamic_center"
             android:summary="@string/summary_osc_dynamic_center"
             android:defaultValue="false" />
+        <ListPreference
+            android:key="list_osc_right_stick_mode"
+            android:dependency="checkbox_osc_floating_joystick"
+            android:title="@string/title_osc_right_stick_mode"
+            android:summary="@string/summary_osc_right_stick_mode"
+            android:entries="@array/osc_right_stick_mode_names"
+            android:entryValues="@array/osc_right_stick_mode_values"
+            android:defaultValue="position" />
+        <com.limelight.preferences.SeekBarPreference
+            android:key="seekbar_osc_right_stick_camera_sensitivity"
+            android:dependency="checkbox_osc_floating_joystick"
+            android:defaultValue="100"
+            android:max="200"
+            seekbar:min="25"
+            seekbar:step="5"
+            android:dialogMessage="@string/summary_osc_right_stick_camera_sensitivity"
+            android:text="@string/suffix_osc_opacity"
+            android:title="@string/title_osc_right_stick_camera_sensitivity"
+            android:summary="@string/summary_osc_right_stick_camera_sensitivity" />
         <CheckBoxPreference
             android:key="checkbox_osc_snap"
             android:dependency="checkbox_show_onscreen_controls"

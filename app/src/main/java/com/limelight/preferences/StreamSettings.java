@@ -277,6 +277,29 @@ public class StreamSettings extends Activity {
             addPreferencesFromResource(R.xml.preferences);
             PreferenceScreen screen = getPreferenceScreen();
 
+            ListPreference rightStickMode = (ListPreference) findPreference(
+                    PreferenceConfiguration.OSC_RIGHT_STICK_MODE_PREF_STRING);
+            Preference rightStickSensitivity = findPreference(
+                    PreferenceConfiguration.OSC_RIGHT_STICK_CAMERA_SENSITIVITY_PREF_STRING);
+            if (rightStickMode != null && rightStickSensitivity != null) {
+                rightStickMode.setSummary(rightStickMode.getEntry());
+                rightStickSensitivity.setEnabled(
+                        PreferenceConfiguration.OSC_RIGHT_STICK_MODE_CAMERA.equals(
+                                rightStickMode.getValue()));
+                rightStickMode.setOnPreferenceChangeListener(new Preference.OnPreferenceChangeListener() {
+                    @Override
+                    public boolean onPreferenceChange(Preference preference, Object newValue) {
+                        int selectedIndex = rightStickMode.findIndexOfValue((String) newValue);
+                        if (selectedIndex >= 0) {
+                            preference.setSummary(rightStickMode.getEntries()[selectedIndex]);
+                        }
+                        rightStickSensitivity.setEnabled(
+                                PreferenceConfiguration.OSC_RIGHT_STICK_MODE_CAMERA.equals(newValue));
+                        return true;
+                    }
+                });
+            }
+
             // hide on-screen controls category on non touch screen devices
             if (!getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN)) {
                 PreferenceCategory category =

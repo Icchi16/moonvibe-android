@@ -42,9 +42,17 @@
     <string name="title_osc_floating_joystick">Cần điều khiển nổi</string>
     <string name="summary_osc_floating_joystick">Hiển thị cần điều khiển tại vị trí chạm (giống Steam Link)</string>
     <string name="title_osc_dynamic_center">Tâm cần điều khiển linh hoạt</string>
-    <string name="summary_osc_dynamic_center">Di chuyển tâm cần điều khiển khi ngón tay vượt ra ngoài phạm vi (kiểu điều khiển camera)</string>
+    <string name="summary_osc_dynamic_center">Di chuyển tâm cần điều khiển khi ngón tay vượt ra ngoài phạm vi (chỉ dùng ở chế độ vị trí)</string>
+    <string name="title_osc_right_stick_mode">Chế độ nhập right stick</string>
+    <string name="summary_osc_right_stick_mode">Chọn theo độ lệch khỏi tâm chạm hoặc theo delta/tốc độ ngón tay</string>
+    <string name="osc_right_stick_mode_position">Theo tâm chạm</string>
+    <string name="osc_right_stick_mode_camera">Theo delta / tốc độ</string>
+    <string name="title_osc_right_stick_camera_sensitivity">Độ nhạy camera cảm ứng</string>
+    <string name="summary_osc_right_stick_camera_sensitivity">Điều chỉnh mức tác động của chuyển động ngón tay lên right stick</string>
     <string name="title_osc_floating_joystick_size">Kích thước cần điều khiển nổi</string>
     <string name="summary_osc_floating_joystick_size">Điều chỉnh kích thước của cần điều khiển nổi</string>
+    <string name="title_osc_snap">Hút vào vị trí</string>
+    <string name="summary_osc_snap">Hút các phím điều khiển vào cạnh và tâm của các phím khác khi di chuyển</string>
     <string name="category_on_screen_controls_settings">Cài đặt điều khiển trên màn hình</string>
     <string name="summary_checkbox_flip_face_buttons">Chuyển các nút ở mặt A/B và X/Y đối với tay cầm điều khiển và điều khiển trên màn hình</string>
     <string name="title_checkbox_flip_face_buttons">Đảo các nút ở mặt</string>
@@ -217,6 +225,7 @@
     <string name="summary_frame_pacing">Chỉ ra cách cân bằng giữa độ trễ video và độ mượt mà</string>
     <string name="pacing_latency">Ưu tiên độ trễ thấp nhất</string>
     <string name="pacing_balanced">Cân bằng</string>
+    <string name="pacing_balanced_alt">Cân bằng với giới hạn FPS</string>
     <string name="pacing_smoothness">Ưu tiên video mượt nhất (có thể tăng độ trễ đáng kể)</string>
     <string name="resolution_480p">480p</string>
     <string name="fps_120">120 FPS</string>
@@ -231,7 +240,16 @@
     <string name="audioconf_stereo">Stereo</string>
     <string name="audioconf_51surround">Âm thanh vòm 5.1</string>
     <string name="audioconf_71surround">Âm thanh vòm 7.1</string>
-    <string name="videoformat_hevcalways">Luôn sử dụng HEVC (có thể gây crash)</string>
+    <string name="videoformat_auto">Tự động (Khuyên dùng)</string>
+    <string name="videoformat_av1always">Ưu tiên AV1 (Thử nghiệm)</string>
+    <string name="videoformat_hevcalways">Ưu tiên HEVC</string>
+    <string name="videoformat_h264always">Ưu tiên H.264</string>
+
+    <string name="title_analog_scrolling">Sử dụng cần analog để cuộn</string>
+    <string name="summary_analog_scrolling">Chọn một cần analog để cuộn khi ở chế độ giả lập chuột</string>
+    <string name="analogscroll_none">Không (cả hai cần đều di chuyển chuột)</string>
+    <string name="analogscroll_right">Cần analog phải</string>
+    <string name="analogscroll_left">Cần analog trái</string>
     <string name="resolution_prefix_native_landscape">(Ngang)</string>
     <string name="frame_conversion_error">PC chủ đã gặp lỗi mã hoá video nghiêm trọng.
 \n

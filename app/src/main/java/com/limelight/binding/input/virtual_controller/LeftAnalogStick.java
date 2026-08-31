@@ -40,6 +40,8 @@ public class LeftAnalogStick extends AnalogStick {
             public void onRevoke() {
                 VirtualController.ControllerInputContext inputContext =
                         controller.getControllerInputContext();
+                inputContext.leftStickX = 0;
+                inputContext.leftStickY = 0;
                 inputContext.inputMap &= ~ControllerPacket.LS_CLK_FLAG;
 
                 controller.sendControllerInputContext();

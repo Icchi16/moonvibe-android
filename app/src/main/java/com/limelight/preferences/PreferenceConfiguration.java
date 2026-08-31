@@ -72,6 +72,11 @@ public class PreferenceConfiguration {
     public static final String OSC_SNAP_PREF_STRING = "checkbox_osc_snap";
     public static final String OSC_FLOATING_JOYSTICK_SIZE_PREF_STRING = "seekbar_osc_floating_joystick_size";
     public static final String OSC_DYNAMIC_CENTER_PREF_STRING = "checkbox_osc_dynamic_center";
+    private static final String LEGACY_OSC_RIGHT_STICK_CAMERA_MODE_PREF_STRING = "checkbox_osc_right_stick_camera_mode";
+    public static final String OSC_RIGHT_STICK_MODE_PREF_STRING = "list_osc_right_stick_mode";
+    public static final String OSC_RIGHT_STICK_CAMERA_SENSITIVITY_PREF_STRING = "seekbar_osc_right_stick_camera_sensitivity";
+    public static final String OSC_RIGHT_STICK_MODE_POSITION = "position";
+    public static final String OSC_RIGHT_STICK_MODE_CAMERA = "camera";
 
     static final String DEFAULT_RESOLUTION = "1280x720";
     static final String DEFAULT_FPS = "60";
@@ -115,6 +120,8 @@ public class PreferenceConfiguration {
     public static final boolean DEFAULT_OSC_FLOATING_JOYSTICK = true;
     public static final int DEFAULT_OSC_FLOATING_JOYSTICK_SIZE = 30;
     public static final boolean DEFAULT_OSC_DYNAMIC_CENTER = false;
+    public static final String DEFAULT_OSC_RIGHT_STICK_MODE = OSC_RIGHT_STICK_MODE_POSITION;
+    public static final int DEFAULT_OSC_RIGHT_STICK_CAMERA_SENSITIVITY = 100;
 
     public static final int FRAME_PACING_MIN_LATENCY = 0;
     public static final int FRAME_PACING_BALANCED = 1;
@@ -166,6 +173,8 @@ public class PreferenceConfiguration {
     public boolean oscSnap;
     public int oscFloatingJoystickSize;
     public boolean oscDynamicCenter;
+    public boolean oscRightStickCameraMode;
+    public int oscRightStickCameraSensitivity;
 
     public static boolean isNativeResolution(int width, int height) {
         // It's not a native resolution if it matches an existing resolution option
@@ -616,6 +625,19 @@ public class PreferenceConfiguration {
         config.oscSnap = prefs.getBoolean(OSC_SNAP_PREF_STRING, true);
         config.oscFloatingJoystickSize = prefs.getInt(OSC_FLOATING_JOYSTICK_SIZE_PREF_STRING, DEFAULT_OSC_FLOATING_JOYSTICK_SIZE);
         config.oscDynamicCenter = prefs.getBoolean(OSC_DYNAMIC_CENTER_PREF_STRING, DEFAULT_OSC_DYNAMIC_CENTER);
+        if (!prefs.contains(OSC_RIGHT_STICK_MODE_PREF_STRING) &&
+                prefs.contains(LEGACY_OSC_RIGHT_STICK_CAMERA_MODE_PREF_STRING)) {
+            boolean legacyCameraMode = prefs.getBoolean(
+                    LEGACY_OSC_RIGHT_STICK_CAMERA_MODE_PREF_STRING, false);
+            prefs.edit()
+                    .putString(OSC_RIGHT_STICK_MODE_PREF_STRING, legacyCameraMode ?
+                            OSC_RIGHT_STICK_MODE_CAMERA : OSC_RIGHT_STICK_MODE_POSITION)
+                    .remove(LEGACY_OSC_RIGHT_STICK_CAMERA_MODE_PREF_STRING)
+                    .apply();
+        }
+        config.oscRightStickCameraMode = OSC_RIGHT_STICK_MODE_CAMERA.equals(
+                prefs.getString(OSC_RIGHT_STICK_MODE_PREF_STRING, DEFAULT_OSC_RIGHT_STICK_MODE));
+        config.oscRightStickCameraSensitivity = prefs.getInt(OSC_RIGHT_STICK_CAMERA_SENSITIVITY_PREF_STRING, DEFAULT_OSC_RIGHT_STICK_CAMERA_SENSITIVITY);
 
         return config;
     }

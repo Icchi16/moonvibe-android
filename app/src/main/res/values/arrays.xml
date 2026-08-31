@@ -131,4 +131,13 @@
         <item>right</item>
         <item>left</item>
     </string-array>
+
+    <string-array name="osc_right_stick_mode_names">
+        <item>@string/osc_right_stick_mode_position</item>
+        <item>@string/osc_right_stick_mode_camera</item>
+    </string-array>
+    <string-array name="osc_right_stick_mode_values" translatable="false">
+        <item>position</item>
+        <item>camera</item>
+    </string-array>
 </resources>

@@ -40,6 +40,8 @@ public class RightAnalogStick extends AnalogStick {
             public void onRevoke() {
                 VirtualController.ControllerInputContext inputContext =
                         controller.getControllerInputContext();
+                inputContext.rightStickX = 0;
+                inputContext.rightStickY = 0;
                 inputContext.inputMap &= ~ControllerPacket.RS_CLK_FLAG;
 
                 controller.sendControllerInputContext();

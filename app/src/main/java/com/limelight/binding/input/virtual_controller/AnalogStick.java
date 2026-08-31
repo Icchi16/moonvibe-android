@@ -8,6 +8,7 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.os.SystemClock;
 import android.util.DisplayMetrics;
 import android.view.MotionEvent;
 
@@ -43,9 +44,43 @@ public class AnalogStick extends VirtualControllerElement {
      */
     public final static long timeoutDeadzone = 150;
 
+    /** Finger speed that produces full stick deflection at 100% camera sensitivity. */
+    private static final float CAMERA_FULL_STICK_SPEED_DP_PER_SECOND = 1000.0f;
+    private static final float CAMERA_DEFAULT_FRAME_SECONDS = 1.0f / 60.0f;
+    /** Spread touch delta across a few frames to bridge irregular MotionEvent delivery. */
+    private static final float CAMERA_DELIVERY_HORIZON_SECONDS = 0.035f;
+    private static final float CAMERA_MAX_PENDING_IMPULSE_SECONDS = 0.08f;
+    private static final float CAMERA_NOISE_FLOOR = 0.01f;
+
     private boolean floatingMode = true;
     private float summonedCenterX = -1;
     private float summonedCenterY = -1;
+
+    private float cameraLastTouchX;
+    private float cameraLastTouchY;
+    private float cameraPendingDeltaX;
+    private float cameraPendingDeltaY;
+    private float cameraPendingImpulseX;
+    private float cameraPendingImpulseY;
+    private long cameraLastFrameTimeNanos;
+    private float cameraOutputX;
+    private float cameraOutputY;
+    private boolean cameraUpdateRunnablePosted;
+    private long cameraNextUpdateTimeMs;
+
+    private final Runnable cameraUpdateRunnable = new Runnable() {
+        @Override
+        public void run() {
+            cameraUpdateRunnablePosted = false;
+
+            if (!isPressed() || !isRightStickCameraMode()) {
+                return;
+            }
+
+            updateCameraFrame(SystemClock.uptimeMillis() * 1_000_000L);
+            postCameraUpdateRunnable();
+        }
+    };
 
     /**
      * Listener interface to update registered observers.
@@ -143,7 +178,7 @@ public class AnalogStick extends VirtualControllerElement {
     private static double getAngle(float way_x, float way_y) {
         // prevent divisions by zero for corner cases
         if (way_x == 0) {
-            return way_y < 0 ? Math.PI : 0;
+            return way_y < 0 ? 0 : Math.PI;
         } else if (way_y == 0) {
             if (way_x > 0) {
                 return Math.PI * 3 / 2;
@@ -341,10 +376,214 @@ public class AnalogStick extends VirtualControllerElement {
         }
     }
 
+    private boolean isRightStickCameraMode() {
+        PreferenceConfiguration config = virtualController.getPrefConfig();
+        return floatingMode && elementId == EID_RS && config != null &&
+                config.oscRightStickCameraMode;
+    }
+
+    private void handleTouchDown(MotionEvent event) {
+        CLICK_STATE lastClickState = click_state;
+
+        stick_state = STICK_STATE.MOVED_IN_DEAD_ZONE;
+        if (lastClickState == CLICK_STATE.SINGLE &&
+                event.getEventTime() - timeLastClick <= timeoutDoubleClick) {
+            click_state = CLICK_STATE.DOUBLE;
+            notifyOnDoubleClick();
+        } else {
+            click_state = CLICK_STATE.SINGLE;
+            notifyOnClick();
+        }
+
+        timeLastClick = event.getEventTime();
+        setPressed(true);
+    }
+
+    private void resetCameraOutput(boolean notifyListener) {
+        boolean hadOutput = cameraOutputX != 0 || cameraOutputY != 0;
+
+        cameraPendingDeltaX = 0;
+        cameraPendingDeltaY = 0;
+        cameraPendingImpulseX = 0;
+        cameraPendingImpulseY = 0;
+        cameraLastFrameTimeNanos = 0;
+        cameraOutputX = 0;
+        cameraOutputY = 0;
+        position_stick_x = getCenterX();
+        position_stick_y = getCenterY();
+        stick_state = isPressed() ? STICK_STATE.MOVED_IN_DEAD_ZONE : STICK_STATE.NO_MOVEMENT;
+
+        if (notifyListener && hadOutput) {
+            notifyOnMovement(0, 0);
+        }
+
+        invalidate();
+    }
+
+    private long getCameraUpdateIntervalMs() {
+        PreferenceConfiguration config = virtualController.getPrefConfig();
+        int streamFps = config != null && config.fps > 0 ? config.fps : 60;
+        int updateRate = Math.min(streamFps, 60);
+        return Math.max(8, 1000 / updateRate);
+    }
+
+    private void postCameraUpdateRunnable() {
+        if (!cameraUpdateRunnablePosted) {
+            long now = SystemClock.uptimeMillis();
+            long updateIntervalMs = getCameraUpdateIntervalMs();
+            if (cameraNextUpdateTimeMs == 0) {
+                cameraNextUpdateTimeMs = now + updateIntervalMs;
+            } else {
+                while (cameraNextUpdateTimeMs <= now) {
+                    cameraNextUpdateTimeMs += updateIntervalMs;
+                }
+            }
+
+            cameraUpdateRunnablePosted = true;
+            virtualController.getHandler().postDelayed(
+                    cameraUpdateRunnable, cameraNextUpdateTimeMs - now);
+        }
+    }
+
+    private void removeCameraUpdateRunnable() {
+        if (cameraUpdateRunnablePosted) {
+            virtualController.getHandler().removeCallbacks(cameraUpdateRunnable);
+            cameraUpdateRunnablePosted = false;
+        }
+        cameraNextUpdateTimeMs = 0;
+    }
+
+    private void accumulateCameraSample(float x, float y) {
+        cameraPendingDeltaX += x - cameraLastTouchX;
+        cameraPendingDeltaY += y - cameraLastTouchY;
+        cameraLastTouchX = x;
+        cameraLastTouchY = y;
+    }
+
+    private void accumulateCameraMovement(MotionEvent event) {
+        for (int i = 0; i < event.getHistorySize(); i++) {
+            accumulateCameraSample(event.getHistoricalX(i), event.getHistoricalY(i));
+        }
+        accumulateCameraSample(event.getX(), event.getY());
+    }
+
+    private void updateCameraFrame(long frameTimeNanos) {
+        float elapsedSeconds = CAMERA_DEFAULT_FRAME_SECONDS;
+        if (cameraLastFrameTimeNanos != 0 && frameTimeNanos > cameraLastFrameTimeNanos) {
+            elapsedSeconds = (frameTimeNanos - cameraLastFrameTimeNanos) / 1_000_000_000.0f;
+        }
+        cameraLastFrameTimeNanos = frameTimeNanos;
+
+        float sensitivity = virtualController.getPrefConfig().oscRightStickCameraSensitivity / 100.0f;
+        float density = Math.max(0.1f, getResources().getDisplayMetrics().density);
+        float deltaToImpulseScale = sensitivity /
+                (density * CAMERA_FULL_STICK_SPEED_DP_PER_SECOND);
+
+        // Convert touch distance into a time-equivalent stick impulse. Consuming this impulse over
+        // subsequent display frames makes total camera rotation proportional to total finger
+        // travel, even when touch and display sample rates differ.
+        cameraPendingImpulseX += cameraPendingDeltaX * deltaToImpulseScale;
+        cameraPendingImpulseY += -cameraPendingDeltaY * deltaToImpulseScale;
+        cameraPendingDeltaX = 0;
+        cameraPendingDeltaY = 0;
+
+        float pendingMagnitude = (float) Math.sqrt(
+                cameraPendingImpulseX * cameraPendingImpulseX +
+                        cameraPendingImpulseY * cameraPendingImpulseY);
+        if (pendingMagnitude > CAMERA_MAX_PENDING_IMPULSE_SECONDS) {
+            float pendingScale = CAMERA_MAX_PENDING_IMPULSE_SECONDS / pendingMagnitude;
+            cameraPendingImpulseX *= pendingScale;
+            cameraPendingImpulseY *= pendingScale;
+        }
+
+        float deliverySeconds = Math.max(elapsedSeconds, CAMERA_DELIVERY_HORIZON_SECONDS);
+        float targetX = cameraPendingImpulseX / deliverySeconds;
+        float targetY = cameraPendingImpulseY / deliverySeconds;
+        float targetMagnitude = (float) Math.sqrt(targetX * targetX + targetY * targetY);
+
+        if (targetMagnitude > 1.0f) {
+            targetX /= targetMagnitude;
+            targetY /= targetMagnitude;
+        } else if (targetMagnitude < CAMERA_NOISE_FLOOR) {
+            targetX = 0;
+            targetY = 0;
+            cameraPendingImpulseX = 0;
+            cameraPendingImpulseY = 0;
+        }
+
+        if (targetX != 0 || targetY != 0) {
+            cameraPendingImpulseX -= targetX * elapsedSeconds;
+            cameraPendingImpulseY -= targetY * elapsedSeconds;
+        }
+
+        boolean outputChanged = Float.compare(cameraOutputX, targetX) != 0 ||
+                Float.compare(cameraOutputY, targetY) != 0;
+        cameraOutputX = targetX;
+        cameraOutputY = targetY;
+
+        float maxMovement = radius_complete - radius_analog_stick;
+        position_stick_x = getCenterX() + cameraOutputX * maxMovement;
+        position_stick_y = getCenterY() - cameraOutputY * maxMovement;
+        stick_state = cameraOutputX == 0 && cameraOutputY == 0 ?
+                STICK_STATE.MOVED_IN_DEAD_ZONE : STICK_STATE.MOVED_ACTIVE;
+
+        if (outputChanged) {
+            notifyOnMovement(cameraOutputX, cameraOutputY);
+        }
+        invalidate();
+    }
+
+    private boolean handleCameraTouchEvent(MotionEvent event) {
+        switch (event.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN: {
+                summonedCenterX = event.getX();
+                summonedCenterY = event.getY();
+                cameraLastTouchX = event.getX();
+                cameraLastTouchY = event.getY();
+                cameraPendingDeltaX = 0;
+                cameraPendingDeltaY = 0;
+                cameraPendingImpulseX = 0;
+                cameraPendingImpulseY = 0;
+                cameraLastFrameTimeNanos = 0;
+                cameraOutputX = 0;
+                cameraOutputY = 0;
+                position_stick_x = summonedCenterX;
+                position_stick_y = summonedCenterY;
+
+                removeCameraUpdateRunnable();
+                handleTouchDown(event);
+                postCameraUpdateRunnable();
+                break;
+            }
+            case MotionEvent.ACTION_MOVE: {
+                if (isPressed()) {
+                    accumulateCameraMovement(event);
+                }
+                break;
+            }
+            case MotionEvent.ACTION_CANCEL:
+            case MotionEvent.ACTION_UP: {
+                removeCameraUpdateRunnable();
+                setPressed(false);
+                resetCameraOutput(false);
+                summonedCenterX = -1;
+                summonedCenterY = -1;
+
+                // The concrete stick listener clears both axes and the click flag in one packet.
+                notifyOnRevoke();
+                break;
+            }
+        }
+
+        invalidate();
+        return true;
+    }
+
     @Override
     public boolean onElementTouchEvent(MotionEvent event) {
-        // save last click state
-        CLICK_STATE lastClickState = click_state;
+        if (isRightStickCameraMode()) {
+            return handleCameraTouchEvent(event);
+        }
 
         if (floatingMode && event.getActionMasked() == MotionEvent.ACTION_DOWN) {
             summonedCenterX = event.getX();
@@ -365,8 +604,9 @@ public class AnalogStick extends VirtualControllerElement {
         float max_movement = radius_complete - radius_analog_stick;
         if (floatingMode && isPressed() && elementId == EID_RS && virtualController.getPrefConfig().oscDynamicCenter && movement_radius > max_movement) {
             float overflow = (float) (movement_radius - max_movement);
-            float shift_x = (float) -(Math.cos(Math.PI / 2 - movement_angle) * overflow);
-            float shift_y = (float) -(Math.sin(Math.PI / 2 - movement_angle) * overflow);
+            float shiftScale = overflow / (float) movement_radius;
+            float shift_x = relative_x * shiftScale;
+            float shift_y = relative_y * shiftScale;
 
             summonedCenterX += shift_x;
             summonedCenterY += shift_y;
@@ -377,6 +617,7 @@ public class AnalogStick extends VirtualControllerElement {
             relative_x = -(centerX - event.getX());
             relative_y = -(centerY - event.getY());
             movement_radius = getMovementRadius(relative_x, relative_y);
+            movement_angle = getAngle(relative_x, relative_y);
         }
 
         // pass touch event to parent if out of outer circle
@@ -392,21 +633,7 @@ public class AnalogStick extends VirtualControllerElement {
         switch (event.getActionMasked()) {
             // down event (touch event)
             case MotionEvent.ACTION_DOWN: {
-                // set to dead zoned, will be corrected in update position if necessary
-                stick_state = STICK_STATE.MOVED_IN_DEAD_ZONE;
-                // check for double click
-                if (lastClickState == CLICK_STATE.SINGLE &&
-                        event.getEventTime() - timeLastClick <= timeoutDoubleClick) {
-                    click_state = CLICK_STATE.DOUBLE;
-                    notifyOnDoubleClick();
-                } else {
-                    click_state = CLICK_STATE.SINGLE;
-                    notifyOnClick();
-                }
-                // reset last click timestamp
-                timeLastClick = event.getEventTime();
-                // set item pressed and update
-                setPressed(true);
+                handleTouchDown(event);
                 break;
             }
             // up event (revoke touch)
@@ -424,10 +651,9 @@ public class AnalogStick extends VirtualControllerElement {
             updatePosition(event.getEventTime());
         } else {
             stick_state = STICK_STATE.NO_MOVEMENT;
-            notifyOnRevoke();
 
-            // not longer pressed reset analog stick
-            notifyOnMovement(0, 0);
+            // The concrete stick listener clears both axes and the click flag in one packet.
+            notifyOnRevoke();
         }
         // refresh view
         invalidate();

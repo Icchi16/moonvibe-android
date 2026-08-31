@@ -438,6 +438,9 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
     @Override
     public boolean onContextItemSelected(MenuItem item) {
         AdapterContextMenuInfo info = (AdapterContextMenuInfo) item.getMenuInfo();
+        if (info == null) {
+            return super.onContextItemSelected(item);
+        }
         final AppObject app = (AppObject) appGridAdapter.getItem(info.position);
         switch (item.getItemId()) {
             case START_WITH_QUIT:
