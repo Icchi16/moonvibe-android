@@ -20,6 +20,15 @@ android {
 
     flavorDimensions.add("root")
 
+    signingConfigs {
+        release {
+            storeFile rootProject.file('moonvibe.jks')
+            storePassword 'moonvibe'
+            keyAlias 'moonvibe'
+            keyPassword 'moonvibe'
+        }
+    }
+
     buildFeatures {
         buildConfig = true
     }
@@ -89,6 +98,7 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
         release {
+            signingConfig signingConfigs.release
             // To whomever is releasing/using an APK in release mode with
             // Moonlight's official application ID, please stop. I see every
             // single one of your crashes in my Play Console and it makes
