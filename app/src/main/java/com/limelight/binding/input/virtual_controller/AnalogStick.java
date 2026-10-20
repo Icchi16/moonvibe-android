@@ -48,9 +48,11 @@ public class AnalogStick extends VirtualControllerElement {
     private static final float CAMERA_FULL_STICK_SPEED_DP_PER_SECOND = 600.0f;
     private static final float CAMERA_DEFAULT_FRAME_SECONDS = 1.0f / 60.0f;
     /** Spread touch delta across a few frames to bridge irregular MotionEvent delivery. */
-    private static final float CAMERA_DELIVERY_HORIZON_SECONDS = 0.035f;
+    private static final float CAMERA_DELIVERY_HORIZON_SECONDS = 0.045f;
     private static final float CAMERA_MAX_PENDING_IMPULSE_SECONDS = 0.15f;
-    private static final float CAMERA_NOISE_FLOOR = 0.02f;
+    private static final float CAMERA_NOISE_FLOOR = 0.002f;
+    /** Finger travel below this is treated as touch jitter rather than a slow swipe. */
+    private static final float CAMERA_JITTER_DP = 0.3f;
     /** Stick output added while the finger is held at the outer ring, so the camera keeps turning. */
     private static final float CAMERA_EDGE_HOLD_OUTPUT = 0.6f;
     /** Relative mouse counts sent per dp of finger travel at 100% sensitivity. */
@@ -517,14 +519,21 @@ public class AnalogStick extends VirtualControllerElement {
     private void accumulateCameraSample(float x, float y) {
         float deltaX = x - cameraLastTouchX;
         float deltaY = y - cameraLastTouchY;
-        cameraLastTouchX = x;
-        cameraLastTouchY = y;
 
         if (isRightStickMouseMode()) {
+            cameraLastTouchX = x;
+            cameraLastTouchY = y;
             sendCameraMouseDelta(deltaX, deltaY);
         } else {
-            cameraPendingDeltaX += deltaX;
-            cameraPendingDeltaY += deltaY;
+            // Measure from the last accepted point, so a resting finger's jitter never adds up
+            // while a slow swipe still gets through once it has travelled far enough.
+            float jitterPx = CAMERA_JITTER_DP * getResources().getDisplayMetrics().density;
+            if (deltaX * deltaX + deltaY * deltaY >= jitterPx * jitterPx) {
+                cameraLastTouchX = x;
+                cameraLastTouchY = y;
+                cameraPendingDeltaX += deltaX;
+                cameraPendingDeltaY += deltaY;
+            }
         }
 
         dragCameraAnchor(x, y);
@@ -576,15 +585,23 @@ public class AnalogStick extends VirtualControllerElement {
             targetX /= targetMagnitude;
             targetY /= targetMagnitude;
         } else if (targetMagnitude < CAMERA_NOISE_FLOOR) {
+            // Keep the pending impulse so a very slow swipe builds up instead of being dropped
             targetX = 0;
             targetY = 0;
-            cameraPendingImpulseX = 0;
-            cameraPendingImpulseY = 0;
         }
 
         if (targetX != 0 || targetY != 0) {
             cameraPendingImpulseX -= targetX * elapsedSeconds;
             cameraPendingImpulseY -= targetY * elapsedSeconds;
+        }
+
+        // Lift slow swipes with a power curve; fast swipes near full deflection barely change
+        targetMagnitude = (float) Math.sqrt(targetX * targetX + targetY * targetY);
+        float slowBoostExponent = 1.0f - 0.5f * config.oscRightStickSlowBoost / 100.0f;
+        if (targetMagnitude > 0 && targetMagnitude < 1.0f && slowBoostExponent < 1.0f) {
+            float boostedMagnitude = (float) Math.pow(targetMagnitude, slowBoostExponent);
+            targetX *= boostedMagnitude / targetMagnitude;
+            targetY *= boostedMagnitude / targetMagnitude;
         }
 
         // Holding the finger against the ring keeps turning, like a regular stick at its edge

@@ -80,6 +80,7 @@ public class PreferenceConfiguration {
     public static final String OSC_RIGHT_STICK_MODE_MOUSE = "mouse";
     public static final String OSC_RIGHT_STICK_ANTI_DEADZONE_PREF_STRING = "seekbar_osc_right_stick_anti_deadzone";
     public static final String OSC_RIGHT_STICK_EDGE_HOLD_PREF_STRING = "checkbox_osc_right_stick_edge_hold";
+    public static final String OSC_RIGHT_STICK_SLOW_BOOST_PREF_STRING = "seekbar_osc_right_stick_slow_boost";
 
     static final String DEFAULT_RESOLUTION = "1280x720";
     static final String DEFAULT_FPS = "60";
@@ -127,6 +128,7 @@ public class PreferenceConfiguration {
     public static final int DEFAULT_OSC_RIGHT_STICK_CAMERA_SENSITIVITY = 100;
     public static final int DEFAULT_OSC_RIGHT_STICK_ANTI_DEADZONE = 20;
     public static final boolean DEFAULT_OSC_RIGHT_STICK_EDGE_HOLD = true;
+    public static final int DEFAULT_OSC_RIGHT_STICK_SLOW_BOOST = 50;
 
     public static final int FRAME_PACING_MIN_LATENCY = 0;
     public static final int FRAME_PACING_BALANCED = 1;
@@ -182,6 +184,7 @@ public class PreferenceConfiguration {
     public boolean oscRightStickMouseMode;
     public int oscRightStickAntiDeadzone;
     public boolean oscRightStickEdgeHold;
+    public int oscRightStickSlowBoost;
     public int oscRightStickCameraSensitivity;
 
     public static boolean isNativeResolution(int width, int height) {
@@ -648,6 +651,7 @@ public class PreferenceConfiguration {
         config.oscRightStickMouseMode = OSC_RIGHT_STICK_MODE_MOUSE.equals(rightStickMode);
         config.oscRightStickAntiDeadzone = prefs.getInt(OSC_RIGHT_STICK_ANTI_DEADZONE_PREF_STRING, DEFAULT_OSC_RIGHT_STICK_ANTI_DEADZONE);
         config.oscRightStickEdgeHold = prefs.getBoolean(OSC_RIGHT_STICK_EDGE_HOLD_PREF_STRING, DEFAULT_OSC_RIGHT_STICK_EDGE_HOLD);
+        config.oscRightStickSlowBoost = prefs.getInt(OSC_RIGHT_STICK_SLOW_BOOST_PREF_STRING, DEFAULT_OSC_RIGHT_STICK_SLOW_BOOST);
         config.oscRightStickCameraSensitivity = prefs.getInt(OSC_RIGHT_STICK_CAMERA_SENSITIVITY_PREF_STRING, DEFAULT_OSC_RIGHT_STICK_CAMERA_SENSITIVITY);
 
         return config;

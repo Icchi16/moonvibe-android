@@ -214,6 +214,17 @@
             android:text="@string/suffix_osc_opacity"
             android:title="@string/title_osc_right_stick_anti_deadzone"
             android:summary="@string/summary_osc_right_stick_anti_deadzone" />
+        <com.limelight.preferences.SeekBarPreference
+            android:key="seekbar_osc_right_stick_slow_boost"
+            android:dependency="checkbox_osc_floating_joystick"
+            android:defaultValue="50"
+            android:max="100"
+            seekbar:min="0"
+            seekbar:step="5"
+            android:dialogMessage="@string/summary_osc_right_stick_slow_boost"
+            android:text="@string/suffix_osc_opacity"
+            android:title="@string/title_osc_right_stick_slow_boost"
+            android:summary="@string/summary_osc_right_stick_slow_boost" />
         <CheckBoxPreference
             android:key="checkbox_osc_right_stick_edge_hold"
             android:dependency="checkbox_osc_floating_joystick"

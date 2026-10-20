@@ -224,6 +224,8 @@
     <string name="summary_osc_right_stick_camera_sensitivity">Adjust how strongly finger movement turns the camera</string>
     <string name="title_osc_right_stick_anti_deadzone">Camera anti-deadzone</string>
     <string name="summary_osc_right_stick_anti_deadzone">Skip past the game\'s stick deadzone so slow swipes still turn the camera (delta / velocity mode)</string>
+    <string name="title_osc_right_stick_slow_boost">Slow swipe boost</string>
+    <string name="summary_osc_right_stick_slow_boost">Make slow, precise swipes turn the camera more without changing fast swipes (delta / velocity mode)</string>
     <string name="title_osc_right_stick_edge_hold">Keep turning at the edge</string>
     <string name="summary_osc_right_stick_edge_hold">Holding the finger against the ring keeps the camera turning (delta / velocity mode)</string>
     <string name="title_osc_floating_joystick_size">Floating joystick size</string>

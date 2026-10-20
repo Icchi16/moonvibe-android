@@ -271,13 +271,15 @@ public class StreamSettings extends Activity {
         }
 
         private static void updateRightStickPreferences(String mode, Preference sensitivity,
-                                                        Preference antiDeadzone, Preference edgeHold) {
+                                                        Preference antiDeadzone, Preference edgeHold,
+                                                        Preference slowBoost) {
             boolean stickCamera = PreferenceConfiguration.OSC_RIGHT_STICK_MODE_CAMERA.equals(mode);
             boolean mouseCamera = PreferenceConfiguration.OSC_RIGHT_STICK_MODE_MOUSE.equals(mode);
 
             sensitivity.setEnabled(stickCamera || mouseCamera);
             antiDeadzone.setEnabled(stickCamera);
             edgeHold.setEnabled(stickCamera);
+            slowBoost.setEnabled(stickCamera);
         }
 
         @Override
@@ -295,11 +297,14 @@ public class StreamSettings extends Activity {
                     PreferenceConfiguration.OSC_RIGHT_STICK_ANTI_DEADZONE_PREF_STRING);
             Preference rightStickEdgeHold = findPreference(
                     PreferenceConfiguration.OSC_RIGHT_STICK_EDGE_HOLD_PREF_STRING);
+            Preference rightStickSlowBoost = findPreference(
+                    PreferenceConfiguration.OSC_RIGHT_STICK_SLOW_BOOST_PREF_STRING);
             if (rightStickMode != null && rightStickSensitivity != null &&
-                    rightStickAntiDeadzone != null && rightStickEdgeHold != null) {
+                    rightStickAntiDeadzone != null && rightStickEdgeHold != null &&
+                    rightStickSlowBoost != null) {
                 rightStickMode.setSummary(rightStickMode.getEntry());
                 updateRightStickPreferences(rightStickMode.getValue(), rightStickSensitivity,
-                        rightStickAntiDeadzone, rightStickEdgeHold);
+                        rightStickAntiDeadzone, rightStickEdgeHold, rightStickSlowBoost);
                 rightStickMode.setOnPreferenceChangeListener(new Preference.OnPreferenceChangeListener() {
                     @Override
                     public boolean onPreferenceChange(Preference preference, Object newValue) {
@@ -308,7 +313,7 @@ public class StreamSettings extends Activity {
                             preference.setSummary(rightStickMode.getEntries()[selectedIndex]);
                         }
                         updateRightStickPreferences((String) newValue, rightStickSensitivity,
-                                rightStickAntiDeadzone, rightStickEdgeHold);
+                                rightStickAntiDeadzone, rightStickEdgeHold, rightStickSlowBoost);
                         return true;
                     }
                 });
