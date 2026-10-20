@@ -1492,6 +1492,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
     }
 
+    public void sendRelativeMouseMove(int deltaX, int deltaY) {
+        if (conn != null) {
+            conn.sendMouseMove((short) deltaX, (short) deltaY);
+        }
+    }
+
     public KeyboardTranslator getKeyboardTranslator() {
         return keyboardTranslator;
     }

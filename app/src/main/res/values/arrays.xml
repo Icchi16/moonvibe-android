@@ -135,9 +135,11 @@
     <string-array name="osc_right_stick_mode_names">
         <item>@string/osc_right_stick_mode_position</item>
         <item>@string/osc_right_stick_mode_camera</item>
+        <item>@string/osc_right_stick_mode_mouse</item>
     </string-array>
     <string-array name="osc_right_stick_mode_values" translatable="false">
         <item>position</item>
         <item>camera</item>
+        <item>mouse</item>
     </string-array>
 </resources>

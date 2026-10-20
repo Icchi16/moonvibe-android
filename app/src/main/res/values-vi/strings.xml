@@ -47,8 +47,13 @@
     <string name="summary_osc_right_stick_mode">Chọn theo độ lệch khỏi tâm chạm hoặc theo delta/tốc độ ngón tay</string>
     <string name="osc_right_stick_mode_position">Theo tâm chạm</string>
     <string name="osc_right_stick_mode_camera">Theo delta / tốc độ</string>
+    <string name="osc_right_stick_mode_mouse">Chuột (vuốt để nhìn)</string>
     <string name="title_osc_right_stick_camera_sensitivity">Độ nhạy camera cảm ứng</string>
-    <string name="summary_osc_right_stick_camera_sensitivity">Điều chỉnh mức tác động của chuyển động ngón tay lên right stick</string>
+    <string name="summary_osc_right_stick_camera_sensitivity">Điều chỉnh mức camera quay theo chuyển động ngón tay</string>
+    <string name="title_osc_right_stick_anti_deadzone">Bù deadzone camera</string>
+    <string name="summary_osc_right_stick_anti_deadzone">Vượt qua deadzone của game để vuốt chậm camera vẫn quay (chế độ delta / tốc độ)</string>
+    <string name="title_osc_right_stick_edge_hold">Giữ ở mép để quay tiếp</string>
+    <string name="summary_osc_right_stick_edge_hold">Giữ ngón tay chạm mép vòng tròn thì camera tiếp tục quay (chế độ delta / tốc độ)</string>
     <string name="title_osc_floating_joystick_size">Kích thước cần điều khiển nổi</string>
     <string name="summary_osc_floating_joystick_size">Điều chỉnh kích thước của cần điều khiển nổi</string>
     <string name="title_osc_snap">Hút vào vị trí</string>

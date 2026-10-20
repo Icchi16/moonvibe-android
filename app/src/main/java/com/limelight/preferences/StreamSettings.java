@@ -270,6 +270,16 @@ public class StreamSettings extends Activity {
             return view;
         }
 
+        private static void updateRightStickPreferences(String mode, Preference sensitivity,
+                                                        Preference antiDeadzone, Preference edgeHold) {
+            boolean stickCamera = PreferenceConfiguration.OSC_RIGHT_STICK_MODE_CAMERA.equals(mode);
+            boolean mouseCamera = PreferenceConfiguration.OSC_RIGHT_STICK_MODE_MOUSE.equals(mode);
+
+            sensitivity.setEnabled(stickCamera || mouseCamera);
+            antiDeadzone.setEnabled(stickCamera);
+            edgeHold.setEnabled(stickCamera);
+        }
+
         @Override
         public void onCreate(Bundle savedInstanceState) {
             super.onCreate(savedInstanceState);
@@ -281,11 +291,15 @@ public class StreamSettings extends Activity {
                     PreferenceConfiguration.OSC_RIGHT_STICK_MODE_PREF_STRING);
             Preference rightStickSensitivity = findPreference(
                     PreferenceConfiguration.OSC_RIGHT_STICK_CAMERA_SENSITIVITY_PREF_STRING);
-            if (rightStickMode != null && rightStickSensitivity != null) {
+            Preference rightStickAntiDeadzone = findPreference(
+                    PreferenceConfiguration.OSC_RIGHT_STICK_ANTI_DEADZONE_PREF_STRING);
+            Preference rightStickEdgeHold = findPreference(
+                    PreferenceConfiguration.OSC_RIGHT_STICK_EDGE_HOLD_PREF_STRING);
+            if (rightStickMode != null && rightStickSensitivity != null &&
+                    rightStickAntiDeadzone != null && rightStickEdgeHold != null) {
                 rightStickMode.setSummary(rightStickMode.getEntry());
-                rightStickSensitivity.setEnabled(
-                        PreferenceConfiguration.OSC_RIGHT_STICK_MODE_CAMERA.equals(
-                                rightStickMode.getValue()));
+                updateRightStickPreferences(rightStickMode.getValue(), rightStickSensitivity,
+                        rightStickAntiDeadzone, rightStickEdgeHold);
                 rightStickMode.setOnPreferenceChangeListener(new Preference.OnPreferenceChangeListener() {
                     @Override
                     public boolean onPreferenceChange(Preference preference, Object newValue) {
@@ -293,8 +307,8 @@ public class StreamSettings extends Activity {
                         if (selectedIndex >= 0) {
                             preference.setSummary(rightStickMode.getEntries()[selectedIndex]);
                         }
-                        rightStickSensitivity.setEnabled(
-                                PreferenceConfiguration.OSC_RIGHT_STICK_MODE_CAMERA.equals(newValue));
+                        updateRightStickPreferences((String) newValue, rightStickSensitivity,
+                                rightStickAntiDeadzone, rightStickEdgeHold);
                         return true;
                     }
                 });

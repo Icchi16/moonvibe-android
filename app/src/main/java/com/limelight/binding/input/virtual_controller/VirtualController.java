@@ -14,6 +14,7 @@ import android.widget.ImageView;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
+import com.limelight.Game;
 import com.limelight.LimeLog;
 import com.limelight.R;
 import com.limelight.binding.input.ControllerHandler;
@@ -159,6 +160,12 @@ public class VirtualController {
 
     Handler getHandler() {
         return handler;
+    }
+
+    void sendMouseMove(int deltaX, int deltaY) {
+        if (context instanceof Game) {
+            ((Game) context).sendRelativeMouseMove(deltaX, deltaY);
+        }
     }
 
     public void hide() {

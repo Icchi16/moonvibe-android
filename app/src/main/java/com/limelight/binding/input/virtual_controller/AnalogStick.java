@@ -45,12 +45,16 @@ public class AnalogStick extends VirtualControllerElement {
     public final static long timeoutDeadzone = 150;
 
     /** Finger speed that produces full stick deflection at 100% camera sensitivity. */
-    private static final float CAMERA_FULL_STICK_SPEED_DP_PER_SECOND = 1000.0f;
+    private static final float CAMERA_FULL_STICK_SPEED_DP_PER_SECOND = 600.0f;
     private static final float CAMERA_DEFAULT_FRAME_SECONDS = 1.0f / 60.0f;
     /** Spread touch delta across a few frames to bridge irregular MotionEvent delivery. */
     private static final float CAMERA_DELIVERY_HORIZON_SECONDS = 0.035f;
-    private static final float CAMERA_MAX_PENDING_IMPULSE_SECONDS = 0.08f;
-    private static final float CAMERA_NOISE_FLOOR = 0.01f;
+    private static final float CAMERA_MAX_PENDING_IMPULSE_SECONDS = 0.15f;
+    private static final float CAMERA_NOISE_FLOOR = 0.02f;
+    /** Stick output added while the finger is held at the outer ring, so the camera keeps turning. */
+    private static final float CAMERA_EDGE_HOLD_OUTPUT = 0.6f;
+    /** Relative mouse counts sent per dp of finger travel at 100% sensitivity. */
+    private static final float MOUSE_COUNTS_PER_DP = 2.0f;
 
     private boolean floatingMode = true;
     private float summonedCenterX = -1;
@@ -66,6 +70,11 @@ public class AnalogStick extends VirtualControllerElement {
     private float cameraOutputX;
     private float cameraOutputY;
     private boolean cameraUpdateRunnablePosted;
+    private boolean cameraAtEdge;
+    private float cameraEdgeDirX;
+    private float cameraEdgeDirY;
+    private float mouseRemainderX;
+    private float mouseRemainderY;
     private long cameraNextUpdateTimeMs;
 
     private final Runnable cameraUpdateRunnable = new Runnable() {
@@ -73,7 +82,7 @@ public class AnalogStick extends VirtualControllerElement {
         public void run() {
             cameraUpdateRunnablePosted = false;
 
-            if (!isPressed() || !isRightStickCameraMode()) {
+            if (!isPressed() || !isRightStickCameraMode() || isRightStickMouseMode()) {
                 return;
             }
 
@@ -376,10 +385,59 @@ public class AnalogStick extends VirtualControllerElement {
         }
     }
 
+    /** True for both touch-camera modes: delta/velocity stick and relative mouse. */
     private boolean isRightStickCameraMode() {
         PreferenceConfiguration config = virtualController.getPrefConfig();
         return floatingMode && elementId == EID_RS && config != null &&
-                config.oscRightStickCameraMode;
+                (config.oscRightStickCameraMode || config.oscRightStickMouseMode);
+    }
+
+    private boolean isRightStickMouseMode() {
+        PreferenceConfiguration config = virtualController.getPrefConfig();
+        return isRightStickCameraMode() && config.oscRightStickMouseMode;
+    }
+
+    private float getCameraSensitivity() {
+        return virtualController.getPrefConfig().oscRightStickCameraSensitivity / 100.0f;
+    }
+
+    /**
+     * Keep the summoned center within one ring radius of the finger. When the finger pushes
+     * against the ring, remember the push direction so the camera keeps turning while held there.
+     */
+    private void dragCameraAnchor(float x, float y) {
+        float dx = x - summonedCenterX;
+        float dy = y - summonedCenterY;
+        float distance = (float) Math.sqrt(dx * dx + dy * dy);
+        float maxMovement = radius_complete - radius_analog_stick;
+
+        if (maxMovement > 0 && distance >= maxMovement) {
+            float overflow = distance - maxMovement;
+            summonedCenterX += dx / distance * overflow;
+            summonedCenterY += dy / distance * overflow;
+            cameraAtEdge = true;
+            cameraEdgeDirX = dx / distance;
+            // Screen Y grows downward, stick Y grows upward
+            cameraEdgeDirY = -dy / distance;
+        } else {
+            cameraAtEdge = false;
+        }
+    }
+
+    private void sendCameraMouseDelta(float deltaX, float deltaY) {
+        float density = Math.max(0.1f, getResources().getDisplayMetrics().density);
+        float scale = MOUSE_COUNTS_PER_DP * getCameraSensitivity() / density;
+
+        mouseRemainderX += deltaX * scale;
+        mouseRemainderY += deltaY * scale;
+
+        int sendX = (int) mouseRemainderX;
+        int sendY = (int) mouseRemainderY;
+        if (sendX != 0 || sendY != 0) {
+            mouseRemainderX -= sendX;
+            mouseRemainderY -= sendY;
+            virtualController.sendMouseMove(sendX, sendY);
+        }
     }
 
     private void handleTouchDown(MotionEvent event) {
@@ -409,6 +467,9 @@ public class AnalogStick extends VirtualControllerElement {
         cameraLastFrameTimeNanos = 0;
         cameraOutputX = 0;
         cameraOutputY = 0;
+        cameraAtEdge = false;
+        mouseRemainderX = 0;
+        mouseRemainderY = 0;
         position_stick_x = getCenterX();
         position_stick_y = getCenterY();
         stick_state = isPressed() ? STICK_STATE.MOVED_IN_DEAD_ZONE : STICK_STATE.NO_MOVEMENT;
@@ -454,10 +515,19 @@ public class AnalogStick extends VirtualControllerElement {
     }
 
     private void accumulateCameraSample(float x, float y) {
-        cameraPendingDeltaX += x - cameraLastTouchX;
-        cameraPendingDeltaY += y - cameraLastTouchY;
+        float deltaX = x - cameraLastTouchX;
+        float deltaY = y - cameraLastTouchY;
         cameraLastTouchX = x;
         cameraLastTouchY = y;
+
+        if (isRightStickMouseMode()) {
+            sendCameraMouseDelta(deltaX, deltaY);
+        } else {
+            cameraPendingDeltaX += deltaX;
+            cameraPendingDeltaY += deltaY;
+        }
+
+        dragCameraAnchor(x, y);
     }
 
     private void accumulateCameraMovement(MotionEvent event) {
@@ -474,7 +544,8 @@ public class AnalogStick extends VirtualControllerElement {
         }
         cameraLastFrameTimeNanos = frameTimeNanos;
 
-        float sensitivity = virtualController.getPrefConfig().oscRightStickCameraSensitivity / 100.0f;
+        PreferenceConfiguration config = virtualController.getPrefConfig();
+        float sensitivity = getCameraSensitivity();
         float density = Math.max(0.1f, getResources().getDisplayMetrics().density);
         float deltaToImpulseScale = sensitivity /
                 (density * CAMERA_FULL_STICK_SPEED_DP_PER_SECOND);
@@ -516,6 +587,28 @@ public class AnalogStick extends VirtualControllerElement {
             cameraPendingImpulseY -= targetY * elapsedSeconds;
         }
 
+        // Holding the finger against the ring keeps turning, like a regular stick at its edge
+        if (cameraAtEdge && config.oscRightStickEdgeHold) {
+            targetX += cameraEdgeDirX * CAMERA_EDGE_HOLD_OUTPUT;
+            targetY += cameraEdgeDirY * CAMERA_EDGE_HOLD_OUTPUT;
+        }
+
+        targetMagnitude = (float) Math.sqrt(targetX * targetX + targetY * targetY);
+        if (targetMagnitude > 1.0f) {
+            targetX /= targetMagnitude;
+            targetY /= targetMagnitude;
+            targetMagnitude = 1.0f;
+        }
+
+        // Games ignore small stick values inside their own deadzone. Start any non-zero output
+        // just past it so slow, precise swipes still move the camera.
+        float antiDeadzone = config.oscRightStickAntiDeadzone / 100.0f;
+        if (targetMagnitude > 0 && antiDeadzone > 0) {
+            float boostedMagnitude = antiDeadzone + (1.0f - antiDeadzone) * targetMagnitude;
+            targetX *= boostedMagnitude / targetMagnitude;
+            targetY *= boostedMagnitude / targetMagnitude;
+        }
+
         boolean outputChanged = Float.compare(cameraOutputX, targetX) != 0 ||
                 Float.compare(cameraOutputY, targetY) != 0;
         cameraOutputX = targetX;
@@ -547,17 +640,28 @@ public class AnalogStick extends VirtualControllerElement {
                 cameraLastFrameTimeNanos = 0;
                 cameraOutputX = 0;
                 cameraOutputY = 0;
+                cameraAtEdge = false;
+                mouseRemainderX = 0;
+                mouseRemainderY = 0;
                 position_stick_x = summonedCenterX;
                 position_stick_y = summonedCenterY;
 
                 removeCameraUpdateRunnable();
                 handleTouchDown(event);
-                postCameraUpdateRunnable();
+                if (!isRightStickMouseMode()) {
+                    postCameraUpdateRunnable();
+                }
                 break;
             }
             case MotionEvent.ACTION_MOVE: {
                 if (isPressed()) {
                     accumulateCameraMovement(event);
+                    if (isRightStickMouseMode()) {
+                        // No stick output in mouse mode; the knob simply follows the finger
+                        position_stick_x = event.getX();
+                        position_stick_y = event.getY();
+                        stick_state = STICK_STATE.MOVED_ACTIVE;
+                    }
                 }
                 break;
             }

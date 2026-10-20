@@ -219,8 +219,13 @@
     <string name="summary_osc_right_stick_mode">Choose center displacement or touch delta/velocity</string>
     <string name="osc_right_stick_mode_position">Position from touch center</string>
     <string name="osc_right_stick_mode_camera">Touch delta / velocity</string>
+    <string name="osc_right_stick_mode_mouse">Mouse (swipe to look)</string>
     <string name="title_osc_right_stick_camera_sensitivity">Camera touch sensitivity</string>
-    <string name="summary_osc_right_stick_camera_sensitivity">Adjust how strongly finger movement drives the right stick</string>
+    <string name="summary_osc_right_stick_camera_sensitivity">Adjust how strongly finger movement turns the camera</string>
+    <string name="title_osc_right_stick_anti_deadzone">Camera anti-deadzone</string>
+    <string name="summary_osc_right_stick_anti_deadzone">Skip past the game\'s stick deadzone so slow swipes still turn the camera (delta / velocity mode)</string>
+    <string name="title_osc_right_stick_edge_hold">Keep turning at the edge</string>
+    <string name="summary_osc_right_stick_edge_hold">Holding the finger against the ring keeps the camera turning (delta / velocity mode)</string>
     <string name="title_osc_floating_joystick_size">Floating joystick size</string>
     <string name="summary_osc_floating_joystick_size">Adjust the size of the floating joystick</string>
     <string name="title_osc_snap">Snap to position</string>
