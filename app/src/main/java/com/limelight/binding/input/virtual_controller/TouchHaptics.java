@@ -49,10 +49,10 @@ public class TouchHaptics {
     }
 
     // Pulse length (ms) and amplitude (1-255) for Light, Medium and Strong
-    private static final long[] PRESS_MS = {14, 22, 32};
-    private static final int[] PRESS_AMPLITUDE = {140, 210, 255};
-    private static final long[] TICK_MS = {8, 12, 18};
-    private static final int[] TICK_AMPLITUDE = {100, 160, 230};
+    private static final long[] PRESS_MS = {14, 27, 32};
+    private static final int[] PRESS_AMPLITUDE = {140, 235, 255};
+    private static final long[] TICK_MS = {8, 15, 18};
+    private static final int[] TICK_AMPLITUDE = {100, 190, 230};
 
     /** A clear pulse for pressing a button down. */
     public void press() {
