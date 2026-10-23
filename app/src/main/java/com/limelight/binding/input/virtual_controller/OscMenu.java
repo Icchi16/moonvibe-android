@@ -50,6 +50,8 @@ class OscMenu {
         String getGyroMode();
         void setGyroMode(String mode);
         OscProfiles getProfiles();
+        /** Remember that the first-run guide was seen or skipped. */
+        void setGuideSeen();
         /** Load the settings and layout of the profile that was just made active. */
         void reloadProfile();
         /** Hold one stick pushed right by this percentage, or let go of it at 0. */
@@ -87,6 +89,20 @@ class OscMenu {
     private final ScrollView panel;
     private final LinearLayout editToolbar;
     private final LinearLayout calibrationCard;
+    private final LinearLayout guideCard;
+
+    private static final int[][] GUIDE_STEPS = {
+            {R.string.osc_guide_menu_title, R.string.osc_guide_menu_body},
+            {R.string.osc_guide_camera_title, R.string.osc_guide_camera_body},
+            {R.string.osc_guide_profiles_title, R.string.osc_guide_profiles_body},
+            {R.string.osc_guide_edit_title, R.string.osc_guide_edit_body},
+    };
+    private boolean guiding = false;
+    private int guideStep = 0;
+    private TextView guideCounter;
+    private TextView guideTitle;
+    private TextView guideBody;
+    private TextView guideNext;
 
     private boolean calibrating = false;
     private boolean calibratingRightStick = true;
@@ -154,6 +170,9 @@ class OscMenu {
         menuButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                if (guiding) {
+                    return;
+                }
                 if (panel.getVisibility() == View.VISIBLE) {
                     closePanel();
                 } else {
@@ -170,7 +189,7 @@ class OscMenu {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 // While calibrating, stray touches must not end it or reach the game
-                if (event.getActionMasked() == MotionEvent.ACTION_UP && !calibrating) {
+                if (event.getActionMasked() == MotionEvent.ACTION_UP && !calibrating && !guiding) {
                     closePanel();
                 }
                 return true;
@@ -187,6 +206,9 @@ class OscMenu {
 
         calibrationCard = buildCalibrationCard();
         calibrationCard.setVisibility(View.GONE);
+
+        guideCard = buildGuideCard();
+        guideCard.setVisibility(View.GONE);
     }
 
     void attach(FrameLayout layout) {
@@ -219,6 +241,12 @@ class OscMenu {
         calibrationParams.topMargin = dp(BUTTON_MARGIN_DP);
         layout.addView(calibrationCard, calibrationParams);
 
+        FrameLayout.LayoutParams guideParams = new FrameLayout.LayoutParams(
+                dp(360), FrameLayout.LayoutParams.WRAP_CONTENT);
+        guideParams.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
+        guideParams.topMargin = dp(BUTTON_MARGIN_DP * 2 + BUTTON_SIZE_DP);
+        layout.addView(guideCard, guideParams);
+
         scheduleFade();
     }
 
@@ -230,6 +258,7 @@ class OscMenu {
         layout.removeView(panel);
         layout.removeView(editToolbar);
         layout.removeView(calibrationCard);
+        layout.removeView(guideCard);
     }
 
     void bringToFront() {
@@ -238,6 +267,7 @@ class OscMenu {
         panel.bringToFront();
         editToolbar.bringToFront();
         calibrationCard.bringToFront();
+        guideCard.bringToFront();
     }
 
     void show() {
@@ -246,12 +276,14 @@ class OscMenu {
     }
 
     void hide() {
+        finishGuide(false);
         finishCalibration(false);
         closePanel();
         menuButton.setVisibility(View.INVISIBLE);
     }
 
     void setEditing(boolean editing) {
+        finishGuide(false);
         finishCalibration(false);
         closePanel();
         editToolbar.setVisibility(editing ? View.VISIBLE : View.GONE);
@@ -391,6 +423,12 @@ class OscMenu {
             @Override
             public void onClick(View v) {
                 startCalibration();
+            }
+        }));
+        content.addView(item(R.drawable.ic_settings, R.string.osc_menu_guide, new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startGuide();
             }
         }));
 
@@ -654,6 +692,97 @@ class OscMenu {
      * it until the game just starts to react. That value becomes the stick's anti-deadzone, so
      * the smallest swipe starts right where the game begins to respond.
      */
+    /** Short cards that point out the menu, camera, profiles and layout editor. */
+    void startGuide() {
+        if (calibrating || editToolbar.getVisibility() == View.VISIBLE) {
+            return;
+        }
+        closePanel();
+        guiding = true;
+        guideStep = 0;
+        scrim.setVisibility(View.VISIBLE);
+        guideCard.setVisibility(View.VISIBLE);
+        bringToFront();
+        // The first card is about the menu button, so keep it visible above the scrim
+        menuButton.bringToFront();
+        handler.removeCallbacks(fadeRunnable);
+        menuButton.animate().cancel();
+        menuButton.setAlpha(ACTIVE_ALPHA);
+        showGuideStep();
+    }
+
+    private void showGuideStep() {
+        guideCounter.setText(context.getString(R.string.osc_guide_counter, guideStep + 1, GUIDE_STEPS.length));
+        guideTitle.setText(GUIDE_STEPS[guideStep][0]);
+        guideBody.setText(GUIDE_STEPS[guideStep][1]);
+        guideNext.setText(guideStep == GUIDE_STEPS.length - 1 ? R.string.osc_guide_done : R.string.osc_guide_next);
+    }
+
+    private void finishGuide(boolean markSeen) {
+        if (!guiding) {
+            return;
+        }
+        guiding = false;
+        guideCard.setVisibility(View.GONE);
+        scrim.setVisibility(View.GONE);
+        if (markSeen) {
+            actions.setGuideSeen();
+        }
+        wakeButton();
+    }
+
+    private LinearLayout buildGuideCard() {
+        LinearLayout card = new LinearLayout(context);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setBackground(roundRect(PANEL_COLOR, dp(16)));
+        int padding = dp(16);
+        card.setPadding(padding, padding, padding, dp(12));
+
+        guideCounter = label();
+        guideCounter.setTextColor(SECONDARY_TEXT_COLOR);
+        guideCounter.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        guideCounter.setPadding(0, 0, 0, dp(4));
+        card.addView(guideCounter);
+
+        guideTitle = label();
+        guideTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
+        guideTitle.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        guideTitle.setPadding(0, 0, 0, dp(6));
+        card.addView(guideTitle);
+
+        guideBody = label();
+        guideBody.setTextColor(SECONDARY_TEXT_COLOR);
+        guideBody.setPadding(0, 0, 0, dp(12));
+        card.addView(guideBody);
+
+        LinearLayout buttons = new LinearLayout(context);
+        buttons.setOrientation(LinearLayout.HORIZONTAL);
+        buttons.setGravity(Gravity.END);
+        TextView skip = toolbarButton(R.string.osc_guide_skip, CHIP_COLOR);
+        skip.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                finishGuide(true);
+            }
+        });
+        guideNext = toolbarButton(R.string.osc_guide_next, CHIP_SELECTED_COLOR);
+        guideNext.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (guideStep < GUIDE_STEPS.length - 1) {
+                    guideStep++;
+                    showGuideStep();
+                } else {
+                    finishGuide(true);
+                }
+            }
+        });
+        buttons.addView(skip);
+        buttons.addView(guideNext);
+        card.addView(buttons);
+        return card;
+    }
+
     private void startCalibration() {
         closePanel();
         calibrating = true;

@@ -58,6 +58,8 @@ public class VirtualController {
     private boolean shown = false;
 
     private static final String MOUSE_MODE_PREF = "osc_mouse_mode";
+    /** Shared by all profiles: the first-run guide is about the app, not a layout. */
+    private static final String GUIDE_SEEN_PREF = "osc_guide_seen";
 
     private boolean isJoystickMode = true;
     private final OscMenu menu;
@@ -278,6 +280,13 @@ public class VirtualController {
         }
 
         @Override
+        public void setGuideSeen() {
+            PreferenceManager.getDefaultSharedPreferences(context).edit()
+                    .putBoolean(GUIDE_SEEN_PREF, true)
+                    .apply();
+        }
+
+        @Override
         public boolean hasGyro() {
             return gyro.isAvailable();
         }
@@ -402,6 +411,10 @@ public class VirtualController {
         menu.show();
         shown = true;
         updateGyroListening();
+
+        if (!PreferenceManager.getDefaultSharedPreferences(context).getBoolean(GUIDE_SEEN_PREF, false)) {
+            menu.startGuide();
+        }
     }
 
     void updateElementVisibility() {
