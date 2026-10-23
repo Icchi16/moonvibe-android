@@ -10,8 +10,10 @@ import android.os.Vibrator;
 /**
  * Short vibrations that confirm touches on the on-screen controls and keyboard.
  *
- * These use the touch vibration usage so the system's touch feedback intensity applies, rather
- * than View.performHapticFeedback() which is silenced entirely by the system haptics switch.
+ * The system's predefined click effects are too faint to notice mid-game on phones like the
+ * Galaxy A52, and the touch vibration usage is scaled by (or muted with) the touch feedback
+ * setting. So these are plain pulses with a set length and strength, played with the same media
+ * usage as game rumble.
  */
 public class TouchHaptics {
     public static final String LEVEL_OFF = "off";
@@ -46,43 +48,51 @@ public class TouchHaptics {
         rumbleActive = active;
     }
 
-    /** A clear click for pressing a button down. */
+    // Pulse length (ms) and amplitude (1-255) for Light, Medium and Strong
+    private static final long[] PRESS_MS = {14, 22, 32};
+    private static final int[] PRESS_AMPLITUDE = {140, 210, 255};
+    private static final long[] TICK_MS = {8, 12, 18};
+    private static final int[] TICK_AMPLITUDE = {100, 160, 230};
+
+    /** A clear pulse for pressing a button down. */
     public void press() {
-        // Light: tick, medium: click, strong: heavy click
-        vibrate(level);
+        if (level > 0) {
+            vibrate(PRESS_MS[level - 1], PRESS_AMPLITUDE[level - 1]);
+        }
     }
 
-    /** A lighter tick for sliding onto another button, changing D-pad direction or typing. */
+    /** A shorter pulse for sliding onto another button, changing D-pad direction or typing. */
     public void tick() {
-        // Light and medium: tick, strong: click
-        vibrate(Math.max(level - 1, 1));
+        if (level > 0) {
+            vibrate(TICK_MS[level - 1], TICK_AMPLITUDE[level - 1]);
+        }
     }
 
-    private void vibrate(int strength) {
-        if (vibrator == null || level == 0 || rumbleActive) {
+    private void vibrate(long durationMs, int amplitude) {
+        if (vibrator == null || rumbleActive) {
             return;
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            int effect = strength == 1 ? VibrationEffect.EFFECT_TICK :
-                    strength == 2 ? VibrationEffect.EFFECT_CLICK :
-                    VibrationEffect.EFFECT_HEAVY_CLICK;
-            vibrate(VibrationEffect.createPredefined(effect));
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            vibrate(VibrationEffect.createOneShot(5L * strength + 5, VibrationEffect.DEFAULT_AMPLITUDE));
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (!vibrator.hasAmplitudeControl()) {
+                // Without amplitude control a longer pulse is the only way to feel stronger
+                amplitude = VibrationEffect.DEFAULT_AMPLITUDE;
+                durationMs += durationMs / 2;
+            }
+            vibrate(VibrationEffect.createOneShot(durationMs, amplitude));
         } else {
-            vibrator.vibrate(5L * strength + 5);
+            vibrator.vibrate(durationMs);
         }
     }
 
     private void vibrate(VibrationEffect effect) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             vibrator.vibrate(effect, new VibrationAttributes.Builder()
-                    .setUsage(VibrationAttributes.USAGE_TOUCH)
+                    .setUsage(VibrationAttributes.USAGE_MEDIA)
                     .build());
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             vibrator.vibrate(effect, new AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                    .setUsage(AudioAttributes.USAGE_GAME)
                     .build());
         }
     }
