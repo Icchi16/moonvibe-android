@@ -81,6 +81,9 @@ public class PreferenceConfiguration {
     public static final String OSC_RIGHT_STICK_ANTI_DEADZONE_PREF_STRING = "seekbar_osc_right_stick_anti_deadzone";
     public static final String OSC_RIGHT_STICK_EDGE_HOLD_PREF_STRING = "checkbox_osc_right_stick_edge_hold";
     public static final String OSC_RIGHT_STICK_SLOW_BOOST_PREF_STRING = "seekbar_osc_right_stick_slow_boost";
+    public static final String OSC_STICK_ANTI_DEADZONE_PREF_STRING = "seekbar_osc_stick_anti_deadzone";
+    public static final String OSC_EDIT_STICK_ZONES_PREF_STRING = "checkbox_osc_edit_stick_zones";
+    public static final String OSC_TOUCH_ASSIST_PREF_STRING = "checkbox_osc_touch_assist";
 
     static final String DEFAULT_RESOLUTION = "1280x720";
     static final String DEFAULT_FPS = "60";
@@ -123,12 +126,15 @@ public class PreferenceConfiguration {
     private static final boolean DEFAULT_GAMEPAD_MOTION_FALLBACK = false;
     public static final boolean DEFAULT_OSC_FLOATING_JOYSTICK = true;
     public static final int DEFAULT_OSC_FLOATING_JOYSTICK_SIZE = 30;
-    public static final boolean DEFAULT_OSC_DYNAMIC_CENTER = false;
-    public static final String DEFAULT_OSC_RIGHT_STICK_MODE = OSC_RIGHT_STICK_MODE_POSITION;
+    public static final boolean DEFAULT_OSC_DYNAMIC_CENTER = true;
+    public static final String DEFAULT_OSC_RIGHT_STICK_MODE = OSC_RIGHT_STICK_MODE_CAMERA;
     public static final int DEFAULT_OSC_RIGHT_STICK_CAMERA_SENSITIVITY = 100;
     public static final int DEFAULT_OSC_RIGHT_STICK_ANTI_DEADZONE = 20;
-    public static final boolean DEFAULT_OSC_RIGHT_STICK_EDGE_HOLD = true;
+    public static final boolean DEFAULT_OSC_RIGHT_STICK_EDGE_HOLD = false;
     public static final int DEFAULT_OSC_RIGHT_STICK_SLOW_BOOST = 50;
+    public static final int DEFAULT_OSC_STICK_ANTI_DEADZONE = 10;
+    public static final boolean DEFAULT_OSC_EDIT_STICK_ZONES = false;
+    public static final boolean DEFAULT_OSC_TOUCH_ASSIST = true;
 
     public static final int FRAME_PACING_MIN_LATENCY = 0;
     public static final int FRAME_PACING_BALANCED = 1;
@@ -186,6 +192,9 @@ public class PreferenceConfiguration {
     public boolean oscRightStickEdgeHold;
     public int oscRightStickSlowBoost;
     public int oscRightStickCameraSensitivity;
+    public int oscStickAntiDeadzone;
+    public boolean oscEditStickZones;
+    public boolean oscTouchAssist;
 
     public static boolean isNativeResolution(int width, int height) {
         // It's not a native resolution if it matches an existing resolution option
@@ -653,6 +662,9 @@ public class PreferenceConfiguration {
         config.oscRightStickEdgeHold = prefs.getBoolean(OSC_RIGHT_STICK_EDGE_HOLD_PREF_STRING, DEFAULT_OSC_RIGHT_STICK_EDGE_HOLD);
         config.oscRightStickSlowBoost = prefs.getInt(OSC_RIGHT_STICK_SLOW_BOOST_PREF_STRING, DEFAULT_OSC_RIGHT_STICK_SLOW_BOOST);
         config.oscRightStickCameraSensitivity = prefs.getInt(OSC_RIGHT_STICK_CAMERA_SENSITIVITY_PREF_STRING, DEFAULT_OSC_RIGHT_STICK_CAMERA_SENSITIVITY);
+        config.oscStickAntiDeadzone = prefs.getInt(OSC_STICK_ANTI_DEADZONE_PREF_STRING, DEFAULT_OSC_STICK_ANTI_DEADZONE);
+        config.oscEditStickZones = prefs.getBoolean(OSC_EDIT_STICK_ZONES_PREF_STRING, DEFAULT_OSC_EDIT_STICK_ZONES);
+        config.oscTouchAssist = prefs.getBoolean(OSC_TOUCH_ASSIST_PREF_STRING, DEFAULT_OSC_TOUCH_ASSIST);
 
         return config;
     }

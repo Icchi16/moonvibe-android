@@ -42,7 +42,7 @@
     <string name="title_osc_floating_joystick">Cần điều khiển nổi</string>
     <string name="summary_osc_floating_joystick">Hiển thị cần điều khiển tại vị trí chạm (giống Steam Link)</string>
     <string name="title_osc_dynamic_center">Tâm cần điều khiển linh hoạt</string>
-    <string name="summary_osc_dynamic_center">Di chuyển tâm cần điều khiển khi ngón tay vượt ra ngoài phạm vi (chỉ dùng ở chế độ vị trí)</string>
+    <string name="summary_osc_dynamic_center">Cần điều khiển đi theo ngón tay khi ngón vượt ra ngoài vòng (chế độ vị trí)</string>
     <string name="title_osc_right_stick_mode">Chế độ nhập right stick</string>
     <string name="summary_osc_right_stick_mode">Chọn theo độ lệch khỏi tâm chạm hoặc theo delta/tốc độ ngón tay</string>
     <string name="osc_right_stick_mode_position">Theo tâm chạm</string>
@@ -55,11 +55,17 @@
     <string name="title_osc_right_stick_slow_boost">Tăng cường vuốt chậm</string>
     <string name="summary_osc_right_stick_slow_boost">Vuốt chậm, nhẹ vẫn quay camera đủ mạnh mà không đổi cảm giác vuốt nhanh (chế độ delta / tốc độ)</string>
     <string name="title_osc_right_stick_edge_hold">Giữ ở mép để quay tiếp</string>
-    <string name="summary_osc_right_stick_edge_hold">Giữ ngón tay chạm mép vòng tròn thì camera tiếp tục quay (chế độ delta / tốc độ)</string>
+    <string name="summary_osc_right_stick_edge_hold">Giữ ngón tay ở mép vùng chạm thì camera tiếp tục quay (chế độ delta / tốc độ)</string>
     <string name="title_osc_floating_joystick_size">Kích thước cần điều khiển nổi</string>
     <string name="summary_osc_floating_joystick_size">Điều chỉnh kích thước của cần điều khiển nổi</string>
     <string name="title_osc_snap">Hút vào vị trí</string>
     <string name="summary_osc_snap">Hút các phím điều khiển vào cạnh và tâm của các phím khác khi di chuyển</string>
+    <string name="title_osc_stick_anti_deadzone">Bù deadzone cho cần điều khiển</string>
+    <string name="summary_osc_stick_anti_deadzone">Vượt qua deadzone của game để đẩy nhẹ cũng đã di chuyển (chế độ vị trí)</string>
+    <string name="title_osc_edit_stick_zones">Cho phép chỉnh vùng cần điều khiển</string>
+    <string name="summary_osc_edit_stick_zones">Cho phép kéo và đổi cỡ vùng cần điều khiển nổi khi chỉnh bố cục</string>
+    <string name="title_osc_touch_assist">Hỗ trợ bấm nút</string>
+    <string name="summary_osc_touch_assist">Bấm lệch gần nút vẫn tính là bấm nút gần nhất, không rơi xuống cần điều khiển phía sau</string>
     <string name="category_on_screen_controls_settings">Cài đặt điều khiển trên màn hình</string>
     <string name="summary_checkbox_flip_face_buttons">Chuyển các nút ở mặt A/B và X/Y đối với tay cầm điều khiển và điều khiển trên màn hình</string>
     <string name="title_checkbox_flip_face_buttons">Đảo các nút ở mặt</string>

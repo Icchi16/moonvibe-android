@@ -183,18 +183,29 @@
             android:dependency="checkbox_osc_floating_joystick"
             android:title="@string/title_osc_dynamic_center"
             android:summary="@string/summary_osc_dynamic_center"
-            android:defaultValue="false" />
+            android:defaultValue="true" />
+        <com.limelight.preferences.SeekBarPreference
+            android:key="seekbar_osc_stick_anti_deadzone"
+            android:dependency="checkbox_show_onscreen_controls"
+            android:defaultValue="10"
+            android:max="40"
+            seekbar:min="0"
+            seekbar:step="1"
+            android:dialogMessage="@string/summary_osc_stick_anti_deadzone"
+            android:text="@string/suffix_osc_opacity"
+            android:title="@string/title_osc_stick_anti_deadzone"
+            android:summary="@string/summary_osc_stick_anti_deadzone" />
         <ListPreference
             android:key="list_osc_right_stick_mode"
-            android:dependency="checkbox_osc_floating_joystick"
+            android:dependency="checkbox_show_onscreen_controls"
             android:title="@string/title_osc_right_stick_mode"
             android:summary="@string/summary_osc_right_stick_mode"
             android:entries="@array/osc_right_stick_mode_names"
             android:entryValues="@array/osc_right_stick_mode_values"
-            android:defaultValue="position" />
+            android:defaultValue="camera" />
         <com.limelight.preferences.SeekBarPreference
             android:key="seekbar_osc_right_stick_camera_sensitivity"
-            android:dependency="checkbox_osc_floating_joystick"
+            android:dependency="checkbox_show_onscreen_controls"
             android:defaultValue="100"
             android:max="400"
             seekbar:min="25"
@@ -205,7 +216,7 @@
             android:summary="@string/summary_osc_right_stick_camera_sensitivity" />
         <com.limelight.preferences.SeekBarPreference
             android:key="seekbar_osc_right_stick_anti_deadzone"
-            android:dependency="checkbox_osc_floating_joystick"
+            android:dependency="checkbox_show_onscreen_controls"
             android:defaultValue="20"
             android:max="50"
             seekbar:min="0"
@@ -216,7 +227,7 @@
             android:summary="@string/summary_osc_right_stick_anti_deadzone" />
         <com.limelight.preferences.SeekBarPreference
             android:key="seekbar_osc_right_stick_slow_boost"
-            android:dependency="checkbox_osc_floating_joystick"
+            android:dependency="checkbox_show_onscreen_controls"
             android:defaultValue="50"
             android:max="100"
             seekbar:min="0"
@@ -227,15 +238,27 @@
             android:summary="@string/summary_osc_right_stick_slow_boost" />
         <CheckBoxPreference
             android:key="checkbox_osc_right_stick_edge_hold"
-            android:dependency="checkbox_osc_floating_joystick"
+            android:dependency="checkbox_show_onscreen_controls"
             android:title="@string/title_osc_right_stick_edge_hold"
             android:summary="@string/summary_osc_right_stick_edge_hold"
-            android:defaultValue="true" />
+            android:defaultValue="false" />
         <CheckBoxPreference
             android:key="checkbox_osc_snap"
             android:dependency="checkbox_show_onscreen_controls"
             android:title="@string/title_osc_snap"
             android:summary="@string/summary_osc_snap"
+            android:defaultValue="true" />
+        <CheckBoxPreference
+            android:key="checkbox_osc_edit_stick_zones"
+            android:dependency="checkbox_osc_floating_joystick"
+            android:title="@string/title_osc_edit_stick_zones"
+            android:summary="@string/summary_osc_edit_stick_zones"
+            android:defaultValue="false" />
+        <CheckBoxPreference
+            android:key="checkbox_osc_touch_assist"
+            android:dependency="checkbox_show_onscreen_controls"
+            android:title="@string/title_osc_touch_assist"
+            android:summary="@string/summary_osc_touch_assist"
             android:defaultValue="true" />
         <com.limelight.preferences.SeekBarPreference
             android:key="seekbar_osc_floating_joystick_size"

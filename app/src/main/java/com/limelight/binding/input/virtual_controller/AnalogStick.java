@@ -49,12 +49,20 @@ public class AnalogStick extends VirtualControllerElement {
     private static final float CAMERA_DEFAULT_FRAME_SECONDS = 1.0f / 60.0f;
     /** Spread touch delta across a few frames to bridge irregular MotionEvent delivery. */
     private static final float CAMERA_DELIVERY_HORIZON_SECONDS = 0.045f;
-    private static final float CAMERA_MAX_PENDING_IMPULSE_SECONDS = 0.15f;
+    private static final float CAMERA_MAX_PENDING_IMPULSE_SECONDS = 0.3f;
+    /** After the finger lifts, keep delivering a flick's remaining turn for at most this long. */
+    private static final long CAMERA_COAST_MAX_MS = 350;
     private static final float CAMERA_NOISE_FLOOR = 0.002f;
     /** Finger travel below this is treated as touch jitter rather than a slow swipe. */
     private static final float CAMERA_JITTER_DP = 0.3f;
-    /** Stick output added while the finger is held at the outer ring, so the camera keeps turning. */
+    /** Stick output added while the finger is held at the edge of the zone, so the camera keeps turning. */
     private static final float CAMERA_EDGE_HOLD_OUTPUT = 0.6f;
+    /** Distance from the touch zone's border that counts as "at the edge" for edge hold. */
+    private static final float CAMERA_EDGE_ZONE_DP = 12.0f;
+    /** Inward finger jitter tolerated before edge hold lets go. */
+    private static final float CAMERA_EDGE_SLACK_DP = 2.0f;
+    /** Fraction of the ring's travel that already gives full deflection in position mode. */
+    private static final float POSITION_FULL_DEFLECTION = 0.85f;
     /** Relative mouse counts sent per dp of finger travel at 100% sensitivity. */
     private static final float MOUSE_COUNTS_PER_DP = 2.0f;
 
@@ -78,17 +86,34 @@ public class AnalogStick extends VirtualControllerElement {
     private float mouseRemainderX;
     private float mouseRemainderY;
     private long cameraNextUpdateTimeMs;
+    private boolean cameraCoasting;
+    private long cameraCoastEndTimeMs;
+
+    /** Element that receives this touch instead, when it started next to a button. */
+    private VirtualControllerElement touchRedirectTarget;
 
     private final Runnable cameraUpdateRunnable = new Runnable() {
         @Override
         public void run() {
             cameraUpdateRunnablePosted = false;
 
-            if (!isPressed() || !isRightStickCameraMode() || isRightStickMouseMode()) {
+            if (!isRightStickCameraMode() || isRightStickMouseMode()) {
+                if (cameraCoasting) {
+                    finishCameraCoast();
+                }
+                return;
+            }
+            if (!isPressed() && !cameraCoasting) {
                 return;
             }
 
-            updateCameraFrame(SystemClock.uptimeMillis() * 1_000_000L);
+            long now = SystemClock.uptimeMillis();
+            updateCameraFrame(now * 1_000_000L);
+
+            if (cameraCoasting && (now >= cameraCoastEndTimeMs || !hasPendingCameraTurn())) {
+                finishCameraCoast();
+                return;
+            }
             postCameraUpdateRunnable();
         }
     };
@@ -232,6 +257,18 @@ public class AnalogStick extends VirtualControllerElement {
         return floatingMode;
     }
 
+    @Override
+    protected boolean isEditableInLayoutMode() {
+        // Floating zones already cover half the screen each; dragging them mostly breaks the layout
+        PreferenceConfiguration config = virtualController.getPrefConfig();
+        return !floatingMode || (config != null && config.oscEditStickZones);
+    }
+
+    @Override
+    protected boolean isSnapTarget() {
+        return !floatingMode;
+    }
+
     public void addAnalogStickListener(AnalogStickListener listener) {
         listeners.add(listener);
     }
@@ -314,6 +351,10 @@ public class AnalogStick extends VirtualControllerElement {
         if (floatingMode && !isPressed() && !isConfigMode) {
             return;
         }
+        // Locked floating zones are left out of the layout editor entirely
+        if (isConfigMode && !isEditableInLayoutMode()) {
+            return;
+        }
 
         // set transparent background
         canvas.drawColor(Color.TRANSPARENT);
@@ -383,14 +424,28 @@ public class AnalogStick extends VirtualControllerElement {
 
         //  trigger move event if state active
         if (stick_state == STICK_STATE.MOVED_ACTIVE) {
-            notifyOnMovement(-correlated_x / complete, correlated_y / complete);
+            // Reach full deflection a bit before the ring's edge and start just past the game's
+            // deadzone, so walking starts with a small push and running doesn't need the very edge.
+            float outX = 0;
+            float outY = 0;
+            float magnitude = (float) movement_radius;
+            float fullDeflection = complete * POSITION_FULL_DEFLECTION;
+            if (magnitude > radius_dead_zone && fullDeflection > radius_dead_zone) {
+                float normalized = Math.min(1.0f,
+                        (magnitude - radius_dead_zone) / (fullDeflection - radius_dead_zone));
+                float antiDeadzone = getStickAntiDeadzone();
+                float shaped = antiDeadzone + (1.0f - antiDeadzone) * normalized;
+                outX = -correlated_x / magnitude * shaped;
+                outY = correlated_y / magnitude * shaped;
+            }
+            notifyOnMovement(outX, outY);
         }
     }
 
     /** True for both touch-camera modes: delta/velocity stick and relative mouse. */
     private boolean isRightStickCameraMode() {
         PreferenceConfiguration config = virtualController.getPrefConfig();
-        return floatingMode && elementId == EID_RS && config != null &&
+        return elementId == EID_RS && config != null &&
                 (config.oscRightStickCameraMode || config.oscRightStickMouseMode);
     }
 
@@ -399,13 +454,25 @@ public class AnalogStick extends VirtualControllerElement {
         return isRightStickCameraMode() && config.oscRightStickMouseMode;
     }
 
+    private float getStickAntiDeadzone() {
+        PreferenceConfiguration config = virtualController.getPrefConfig();
+        return config != null ? config.oscStickAntiDeadzone / 100.0f : 0;
+    }
+
     private float getCameraSensitivity() {
         return virtualController.getPrefConfig().oscRightStickCameraSensitivity / 100.0f;
     }
 
+    private boolean isNearZoneBorder(float x, float y) {
+        float margin = CAMERA_EDGE_ZONE_DP * getResources().getDisplayMetrics().density;
+        return x < margin || y < margin || x > getWidth() - margin || y > getHeight() - margin;
+    }
+
     /**
-     * Keep the summoned center within one ring radius of the finger. When the finger pushes
-     * against the ring, remember the push direction so the camera keeps turning while held there.
+     * Keep the summoned center within one ring radius of the finger, so the ring trails the
+     * finger in the direction it moves. Edge hold only engages when the finger is still pushing
+     * that way at the border of the touch zone, where it can't swipe any further; stopping
+     * anywhere else stops the camera.
      */
     private void dragCameraAnchor(float x, float y) {
         float dx = x - summonedCenterX;
@@ -413,16 +480,25 @@ public class AnalogStick extends VirtualControllerElement {
         float distance = (float) Math.sqrt(dx * dx + dy * dy);
         float maxMovement = radius_complete - radius_analog_stick;
 
-        if (maxMovement > 0 && distance >= maxMovement) {
+        if (maxMovement <= 0 || distance == 0) {
+            cameraAtEdge = false;
+            return;
+        }
+
+        if (distance >= maxMovement) {
             float overflow = distance - maxMovement;
             summonedCenterX += dx / distance * overflow;
             summonedCenterY += dy / distance * overflow;
-            cameraAtEdge = true;
+        }
+
+        float slack = cameraAtEdge ?
+                CAMERA_EDGE_SLACK_DP * getResources().getDisplayMetrics().density : 0;
+        boolean pushing = distance >= maxMovement - slack;
+        cameraAtEdge = pushing && isNearZoneBorder(x, y);
+        if (cameraAtEdge) {
             cameraEdgeDirX = dx / distance;
             // Screen Y grows downward, stick Y grows upward
             cameraEdgeDirY = -dy / distance;
-        } else {
-            cameraAtEdge = false;
         }
     }
 
@@ -442,11 +518,11 @@ public class AnalogStick extends VirtualControllerElement {
         }
     }
 
-    private void handleTouchDown(MotionEvent event) {
+    private void handleTouchDown(MotionEvent event, boolean allowDoubleClick) {
         CLICK_STATE lastClickState = click_state;
 
         stick_state = STICK_STATE.MOVED_IN_DEAD_ZONE;
-        if (lastClickState == CLICK_STATE.SINGLE &&
+        if (allowDoubleClick && lastClickState == CLICK_STATE.SINGLE &&
                 event.getEventTime() - timeLastClick <= timeoutDoubleClick) {
             click_state = CLICK_STATE.DOUBLE;
             notifyOnDoubleClick();
@@ -514,6 +590,24 @@ public class AnalogStick extends VirtualControllerElement {
             cameraUpdateRunnablePosted = false;
         }
         cameraNextUpdateTimeMs = 0;
+    }
+
+    private boolean hasPendingCameraTurn() {
+        float pendingMagnitude = (float) Math.sqrt(
+                cameraPendingImpulseX * cameraPendingImpulseX +
+                        cameraPendingImpulseY * cameraPendingImpulseY);
+        return cameraPendingDeltaX != 0 || cameraPendingDeltaY != 0 ||
+                pendingMagnitude >= CAMERA_NOISE_FLOOR * CAMERA_DELIVERY_HORIZON_SECONDS;
+    }
+
+    /** Release the stick once a lifted flick has delivered its remaining turn. */
+    private void finishCameraCoast() {
+        cameraCoasting = false;
+        removeCameraUpdateRunnable();
+        resetCameraOutput(false);
+
+        // The concrete stick listener clears both axes and the click flag in one packet.
+        notifyOnRevoke();
     }
 
     private void accumulateCameraSample(float x, float y) {
@@ -646,6 +740,11 @@ public class AnalogStick extends VirtualControllerElement {
     private boolean handleCameraTouchEvent(MotionEvent event) {
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN: {
+                if (cameraCoasting) {
+                    // A new swipe interrupts the previous flick's remaining turn
+                    cameraCoasting = false;
+                    resetCameraOutput(true);
+                }
                 summonedCenterX = event.getX();
                 summonedCenterY = event.getY();
                 cameraLastTouchX = event.getX();
@@ -664,7 +763,8 @@ public class AnalogStick extends VirtualControllerElement {
                 position_stick_y = summonedCenterY;
 
                 removeCameraUpdateRunnable();
-                handleTouchDown(event);
+                // Quick consecutive swipes are normal when turning the camera; never read them as R3
+                handleTouchDown(event, false);
                 if (!isRightStickMouseMode()) {
                     postCameraUpdateRunnable();
                 }
@@ -684,11 +784,26 @@ public class AnalogStick extends VirtualControllerElement {
             }
             case MotionEvent.ACTION_CANCEL:
             case MotionEvent.ACTION_UP: {
+                if (isPressed() && event.getActionMasked() == MotionEvent.ACTION_UP) {
+                    // The lift can carry the last bit of finger travel
+                    accumulateCameraMovement(event);
+                }
                 removeCameraUpdateRunnable();
                 setPressed(false);
-                resetCameraOutput(false);
                 summonedCenterX = -1;
                 summonedCenterY = -1;
+                cameraAtEdge = false;
+
+                if (event.getActionMasked() == MotionEvent.ACTION_UP &&
+                        !isRightStickMouseMode() && hasPendingCameraTurn()) {
+                    // Finish turning by what the flick asked for instead of dropping the rest
+                    cameraCoasting = true;
+                    cameraCoastEndTimeMs = SystemClock.uptimeMillis() + CAMERA_COAST_MAX_MS;
+                    postCameraUpdateRunnable();
+                    break;
+                }
+
+                resetCameraOutput(false);
 
                 // The concrete stick listener clears both axes and the click flag in one packet.
                 notifyOnRevoke();
@@ -700,8 +815,32 @@ public class AnalogStick extends VirtualControllerElement {
         return true;
     }
 
+    /** Hand a touch that started next to a button over to that button, with its coordinates. */
+    private void forwardTouch(VirtualControllerElement target, MotionEvent event) {
+        MotionEvent forwarded = MotionEvent.obtain(event);
+        forwarded.offsetLocation(getX() - target.getX(), getY() - target.getY());
+        target.onElementTouchEvent(forwarded);
+        forwarded.recycle();
+    }
+
     @Override
     public boolean onElementTouchEvent(MotionEvent event) {
+        int action = event.getActionMasked();
+        if (action == MotionEvent.ACTION_DOWN) {
+            // A floating zone sits behind the buttons, so near misses on a button would land here
+            touchRedirectTarget = floatingMode ?
+                    virtualController.findTouchAssistTarget(getX() + event.getX(), getY() + event.getY()) :
+                    null;
+        }
+        if (touchRedirectTarget != null) {
+            VirtualControllerElement target = touchRedirectTarget;
+            if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                touchRedirectTarget = null;
+            }
+            forwardTouch(target, event);
+            return true;
+        }
+
         if (isRightStickCameraMode()) {
             return handleCameraTouchEvent(event);
         }
@@ -723,7 +862,7 @@ public class AnalogStick extends VirtualControllerElement {
         movement_angle = getAngle(relative_x, relative_y);
 
         float max_movement = radius_complete - radius_analog_stick;
-        if (floatingMode && isPressed() && elementId == EID_RS && virtualController.getPrefConfig().oscDynamicCenter && movement_radius > max_movement) {
+        if (floatingMode && isPressed() && virtualController.getPrefConfig().oscDynamicCenter && movement_radius > max_movement) {
             float overflow = (float) (movement_radius - max_movement);
             float shiftScale = overflow / (float) movement_radius;
             float shift_x = relative_x * shiftScale;
@@ -754,7 +893,7 @@ public class AnalogStick extends VirtualControllerElement {
         switch (event.getActionMasked()) {
             // down event (touch event)
             case MotionEvent.ACTION_DOWN: {
-                handleTouchDown(event);
+                handleTouchDown(event, true);
                 break;
             }
             // up event (revoke touch)

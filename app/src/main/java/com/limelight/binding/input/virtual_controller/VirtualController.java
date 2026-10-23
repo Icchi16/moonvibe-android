@@ -228,6 +228,83 @@ public class VirtualController {
         return prefConfig;
     }
 
+    /** Extra reach around single buttons when touch assist is on. */
+    private static final float TOUCH_ASSIST_SLOP_DP = 10.0f;
+
+    private static boolean isFaceButton(VirtualControllerElement element) {
+        return element.elementId == VirtualControllerElement.EID_A ||
+                element.elementId == VirtualControllerElement.EID_B ||
+                element.elementId == VirtualControllerElement.EID_X ||
+                element.elementId == VirtualControllerElement.EID_Y;
+    }
+
+    private static float distanceToCenter(VirtualControllerElement element, float x, float y) {
+        float dx = x - (element.getX() + element.getWidth() / 2f);
+        float dy = y - (element.getY() + element.getHeight() / 2f);
+        return (float) Math.sqrt(dx * dx + dy * dy);
+    }
+
+    /**
+     * Finds the button a touch at (x, y) in layout coordinates was most likely aimed at, for a
+     * touch that missed every button and would otherwise reach a joystick zone behind them.
+     * The whole A/B/X/Y block, gaps included, belongs to its nearest face button; other buttons
+     * reach a little past their edges.
+     */
+    VirtualControllerElement findTouchAssistTarget(float x, float y) {
+        if (prefConfig == null || !prefConfig.oscTouchAssist) {
+            return null;
+        }
+
+        float slop = TOUCH_ASSIST_SLOP_DP * context.getResources().getDisplayMetrics().density;
+
+        float faceLeft = Float.MAX_VALUE, faceTop = Float.MAX_VALUE;
+        float faceRight = -Float.MAX_VALUE, faceBottom = -Float.MAX_VALUE;
+        float faceButtonSize = 0;
+        for (VirtualControllerElement element : elements) {
+            if (isFaceButton(element) && element.getVisibility() == View.VISIBLE) {
+                faceLeft = Math.min(faceLeft, element.getX());
+                faceTop = Math.min(faceTop, element.getY());
+                faceRight = Math.max(faceRight, element.getX() + element.getWidth());
+                faceBottom = Math.max(faceBottom, element.getY() + element.getHeight());
+                faceButtonSize = Math.max(faceButtonSize, Math.min(element.getWidth(), element.getHeight()));
+            }
+        }
+
+        VirtualControllerElement best = null;
+        float bestDistance = Float.MAX_VALUE;
+
+        float faceMargin = Math.max(slop, faceButtonSize * 0.25f);
+        if (faceButtonSize > 0 &&
+                x >= faceLeft - faceMargin && x <= faceRight + faceMargin &&
+                y >= faceTop - faceMargin && y <= faceBottom + faceMargin) {
+            for (VirtualControllerElement element : elements) {
+                if (isFaceButton(element) && element.getVisibility() == View.VISIBLE) {
+                    float distance = distanceToCenter(element, x, y);
+                    if (distance < bestDistance) {
+                        best = element;
+                        bestDistance = distance;
+                    }
+                }
+            }
+            return best;
+        }
+
+        for (VirtualControllerElement element : elements) {
+            if (element instanceof AnalogStick || element.getVisibility() != View.VISIBLE) {
+                continue;
+            }
+            if (x >= element.getX() - slop && x <= element.getX() + element.getWidth() + slop &&
+                    y >= element.getY() - slop && y <= element.getY() + element.getHeight() + slop) {
+                float distance = distanceToCenter(element, x, y);
+                if (distance < bestDistance) {
+                    best = element;
+                    bestDistance = distance;
+                }
+            }
+        }
+        return best;
+    }
+
     private static final void _DBG(String text) {
         if (_PRINT_DEBUG_INFORMATION) {
             LimeLog.info("VirtualController: " + text);

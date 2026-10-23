@@ -63,6 +63,11 @@ public abstract class VirtualControllerElement extends View {
 
     private Mode currentMode = Mode.Normal;
 
+    private static final float SNAP_THRESHOLD_DP = 8.0f;
+
+    /** Pointer that owns this element; other fingers landing on it are ignored. */
+    private int activePointerId = MotionEvent.INVALID_POINTER_ID;
+
     protected VirtualControllerElement(VirtualController controller, Context context, int elementId) {
         super(context);
 
@@ -91,7 +96,8 @@ public abstract class VirtualControllerElement extends View {
         snapY = -1;
 
         if (virtualController.getPrefConfig().oscSnap) {
-            int magneticThreshold = 20; // Magnetic pull once within snap range
+            // Magnetic pull once within snap range
+            float magneticThreshold = SNAP_THRESHOLD_DP * getResources().getDisplayMetrics().density;
 
             // Ability to snap to original position first
             if (originalPos_x != -1 && originalPos_y != -1) {
@@ -105,24 +111,35 @@ public abstract class VirtualControllerElement extends View {
                 }
             }
 
-            // Snap to horizontal/vertical centers of ANY other button
+            // Snap to the centers and edges of other buttons
             for (VirtualControllerElement element : virtualController.getElements()) {
-                if (element == this) continue;
+                if (element == this || !element.isSnapTarget()) continue;
 
                 float elementCenterX = element.getX() + element.getWidth() / 2f;
                 float elementCenterY = element.getY() + element.getHeight() / 2f;
 
-                // Snap to horizontal center
                 if (Math.abs((newPos_x + getWidth() / 2f) - elementCenterX) < magneticThreshold) {
                     newPos_x = (int) (elementCenterX - getWidth() / 2f);
                     snapLinesX.add(elementCenterX);
                     snapX = elementCenterX;
+                } else if (Math.abs(newPos_x - element.getX()) < magneticThreshold) {
+                    newPos_x = (int) element.getX();
+                    snapLinesX.add(element.getX());
+                } else if (Math.abs((newPos_x + getWidth()) - (element.getX() + element.getWidth())) < magneticThreshold) {
+                    newPos_x = (int) (element.getX() + element.getWidth() - getWidth());
+                    snapLinesX.add(element.getX() + element.getWidth());
                 }
-                // Snap to vertical center
+
                 if (Math.abs((newPos_y + getHeight() / 2f) - elementCenterY) < magneticThreshold) {
                     newPos_y = (int) (elementCenterY - getHeight() / 2f);
                     snapLinesY.add(elementCenterY);
                     snapY = elementCenterY;
+                } else if (Math.abs(newPos_y - element.getY()) < magneticThreshold) {
+                    newPos_y = (int) element.getY();
+                    snapLinesY.add(element.getY());
+                } else if (Math.abs((newPos_y + getHeight()) - (element.getY() + element.getHeight())) < magneticThreshold) {
+                    newPos_y = (int) (element.getY() + element.getHeight() - getHeight());
+                    snapLinesY.add(element.getY() + element.getHeight());
                 }
             }
         }
@@ -326,19 +343,114 @@ public abstract class VirtualControllerElement extends View {
         alert.show();
     }
 
-    @Override
-    public boolean onTouchEvent(MotionEvent event) {
-        // Ignore secondary touches on controls
-        //
-        // NB: We can get an additional pointer down if the user touches a non-StreamView area
-        // while also touching an OSC control, even if that pointer down doesn't correspond to
-        // an area of the OSC control.
-        if (event.getActionIndex() != 0) {
-            return true;
+    /**
+     * Copies one pointer of a multi-touch event, history included, into a single-pointer event,
+     * so elements can keep reading getX() and getHistoricalX() without mixing up fingers.
+     */
+    private static MotionEvent obtainSinglePointerEvent(MotionEvent event, int pointerIndex, int action) {
+        MotionEvent.PointerProperties[] properties = { new MotionEvent.PointerProperties() };
+        MotionEvent.PointerCoords[] coords = { new MotionEvent.PointerCoords() };
+        event.getPointerProperties(pointerIndex, properties[0]);
+        properties[0].id = 0;
+
+        int historySize = event.getHistorySize();
+        if (historySize > 0) {
+            event.getHistoricalPointerCoords(pointerIndex, 0, coords[0]);
+        } else {
+            event.getPointerCoords(pointerIndex, coords[0]);
         }
 
+        MotionEvent single = MotionEvent.obtain(event.getDownTime(),
+                historySize > 0 ? event.getHistoricalEventTime(0) : event.getEventTime(),
+                action, 1, properties, coords, event.getMetaState(), event.getButtonState(),
+                event.getXPrecision(), event.getYPrecision(), event.getDeviceId(), 0,
+                event.getSource(), event.getFlags());
+
+        if (historySize > 0) {
+            for (int h = 1; h < historySize; h++) {
+                event.getHistoricalPointerCoords(pointerIndex, h, coords[0]);
+                single.addBatch(event.getHistoricalEventTime(h), coords, event.getMetaState());
+            }
+            event.getPointerCoords(pointerIndex, coords[0]);
+            single.addBatch(event.getEventTime(), coords, event.getMetaState());
+        }
+
+        return single;
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        int action = event.getActionMasked();
+        int pointerIndex;
+        int elementAction = action;
+
+        // Follow the finger that pressed this element by its pointer id. Reading index 0 would jump
+        // to another finger's position once the first one lifts.
+        switch (action) {
+            case MotionEvent.ACTION_DOWN:
+                activePointerId = event.getPointerId(0);
+                pointerIndex = 0;
+                break;
+            case MotionEvent.ACTION_POINTER_DOWN:
+                // Ignore secondary touches on controls
+                //
+                // NB: We can get an additional pointer down if the user touches a non-StreamView area
+                // while also touching an OSC control, even if that pointer down doesn't correspond to
+                // an area of the OSC control.
+                return true;
+            case MotionEvent.ACTION_POINTER_UP:
+                if (event.getPointerId(event.getActionIndex()) != activePointerId) {
+                    return true;
+                }
+                // The owning finger lifted while another stays down: release the element now
+                pointerIndex = event.getActionIndex();
+                elementAction = MotionEvent.ACTION_UP;
+                break;
+            case MotionEvent.ACTION_MOVE:
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
+                pointerIndex = event.findPointerIndex(activePointerId);
+                if (pointerIndex < 0) {
+                    return true;
+                }
+                break;
+            default:
+                return true;
+        }
+
+        if (elementAction == MotionEvent.ACTION_UP || elementAction == MotionEvent.ACTION_CANCEL) {
+            activePointerId = MotionEvent.INVALID_POINTER_ID;
+        }
+
+        if (event.getPointerCount() == 1 && elementAction == action) {
+            return dispatchElementTouchEvent(event);
+        }
+
+        MotionEvent single = obtainSinglePointerEvent(event, pointerIndex, elementAction);
+        try {
+            return dispatchElementTouchEvent(single);
+        } finally {
+            single.recycle();
+        }
+    }
+
+    /** Whether this element can be moved and resized in the layout editor. */
+    protected boolean isEditableInLayoutMode() {
+        return true;
+    }
+
+    /** Whether other elements snap to this one while being moved. */
+    protected boolean isSnapTarget() {
+        return true;
+    }
+
+    private boolean dispatchElementTouchEvent(MotionEvent event) {
         if (virtualController.getControllerMode() == VirtualController.ControllerMode.Active) {
             return onElementTouchEvent(event);
+        }
+
+        if (!isEditableInLayoutMode()) {
+            return false;
         }
 
         switch (event.getActionMasked()) {
