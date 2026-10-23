@@ -44,19 +44,8 @@ public class AnalogStick extends VirtualControllerElement {
      */
     public final static long timeoutDeadzone = 150;
 
-    /** Finger speed that produces full stick deflection at 100% camera sensitivity. */
-    private static final float CAMERA_FULL_STICK_SPEED_DP_PER_SECOND = 600.0f;
-    private static final float CAMERA_DEFAULT_FRAME_SECONDS = 1.0f / 60.0f;
-    /** Spread touch delta across a few frames to bridge irregular MotionEvent delivery. */
-    private static final float CAMERA_DELIVERY_HORIZON_SECONDS = 0.045f;
-    private static final float CAMERA_MAX_PENDING_IMPULSE_SECONDS = 0.3f;
     /** After the finger lifts, keep delivering a flick's remaining turn for at most this long. */
     private static final long CAMERA_COAST_MAX_MS = 350;
-    private static final float CAMERA_NOISE_FLOOR = 0.002f;
-    /** Finger travel below this is treated as touch jitter rather than a slow swipe. */
-    private static final float CAMERA_JITTER_DP = 0.3f;
-    /** Stick output added while the finger is held at the edge of the zone, so the camera keeps turning. */
-    private static final float CAMERA_EDGE_HOLD_OUTPUT = 0.6f;
     /** Distance from the touch zone's border that counts as "at the edge" for edge hold. */
     private static final float CAMERA_EDGE_ZONE_DP = 12.0f;
     /** Inward finger jitter tolerated before edge hold lets go. */
@@ -73,15 +62,11 @@ public class AnalogStick extends VirtualControllerElement {
     private float summonedCenterX = -1;
     private float summonedCenterY = -1;
 
-    private float cameraLastTouchX;
-    private float cameraLastTouchY;
-    private float cameraPendingDeltaX;
-    private float cameraPendingDeltaY;
-    private float cameraPendingImpulseX;
-    private float cameraPendingImpulseY;
-    private long cameraLastFrameTimeNanos;
-    private float cameraOutputX;
-    private float cameraOutputY;
+    private CameraStickModel cameraModel;
+    private final CameraStickModel.Settings cameraSettings = new CameraStickModel.Settings();
+    /** Last finger position in mouse mode, which sends raw deltas without the stick model. */
+    private float mouseLastTouchX;
+    private float mouseLastTouchY;
     private boolean cameraUpdateRunnablePosted;
     private boolean cameraAtEdge;
     private float cameraEdgeDirX;
@@ -542,16 +527,18 @@ public class AnalogStick extends VirtualControllerElement {
         setPressed(true);
     }
 
-    private void resetCameraOutput(boolean notifyListener) {
-        boolean hadOutput = cameraOutputX != 0 || cameraOutputY != 0;
+    private CameraStickModel getCameraModel() {
+        if (cameraModel == null) {
+            cameraModel = new CameraStickModel(getResources().getDisplayMetrics().density);
+        }
+        return cameraModel;
+    }
 
-        cameraPendingDeltaX = 0;
-        cameraPendingDeltaY = 0;
-        cameraPendingImpulseX = 0;
-        cameraPendingImpulseY = 0;
-        cameraLastFrameTimeNanos = 0;
-        cameraOutputX = 0;
-        cameraOutputY = 0;
+    private void resetCameraOutput(boolean notifyListener) {
+        CameraStickModel model = getCameraModel();
+        boolean hadOutput = model.getOutputX() != 0 || model.getOutputY() != 0;
+
+        model.reset();
         cameraAtEdge = false;
         mouseRemainderX = 0;
         mouseRemainderY = 0;
@@ -600,11 +587,7 @@ public class AnalogStick extends VirtualControllerElement {
     }
 
     private boolean hasPendingCameraTurn() {
-        float pendingMagnitude = (float) Math.sqrt(
-                cameraPendingImpulseX * cameraPendingImpulseX +
-                        cameraPendingImpulseY * cameraPendingImpulseY);
-        return cameraPendingDeltaX != 0 || cameraPendingDeltaY != 0 ||
-                pendingMagnitude >= CAMERA_NOISE_FLOOR * CAMERA_DELIVERY_HORIZON_SECONDS;
+        return getCameraModel().hasPendingTurn();
     }
 
     /** Release the stick once a lifted flick has delivered its remaining turn. */
@@ -618,23 +601,14 @@ public class AnalogStick extends VirtualControllerElement {
     }
 
     private void accumulateCameraSample(float x, float y) {
-        float deltaX = x - cameraLastTouchX;
-        float deltaY = y - cameraLastTouchY;
-
         if (isRightStickMouseMode()) {
-            cameraLastTouchX = x;
-            cameraLastTouchY = y;
+            float deltaX = x - mouseLastTouchX;
+            float deltaY = y - mouseLastTouchY;
+            mouseLastTouchX = x;
+            mouseLastTouchY = y;
             sendCameraMouseDelta(deltaX, deltaY);
         } else {
-            // Measure from the last accepted point, so a resting finger's jitter never adds up
-            // while a slow swipe still gets through once it has travelled far enough.
-            float jitterPx = CAMERA_JITTER_DP * getResources().getDisplayMetrics().density;
-            if (deltaX * deltaX + deltaY * deltaY >= jitterPx * jitterPx) {
-                cameraLastTouchX = x;
-                cameraLastTouchY = y;
-                cameraPendingDeltaX += deltaX;
-                cameraPendingDeltaY += deltaY;
-            }
+            getCameraModel().addTouchSample(x, y);
         }
 
         dragCameraAnchor(x, y);
@@ -648,98 +622,26 @@ public class AnalogStick extends VirtualControllerElement {
     }
 
     private void updateCameraFrame(long frameTimeNanos) {
-        float elapsedSeconds = CAMERA_DEFAULT_FRAME_SECONDS;
-        if (cameraLastFrameTimeNanos != 0 && frameTimeNanos > cameraLastFrameTimeNanos) {
-            elapsedSeconds = (frameTimeNanos - cameraLastFrameTimeNanos) / 1_000_000_000.0f;
-        }
-        cameraLastFrameTimeNanos = frameTimeNanos;
-
         PreferenceConfiguration config = virtualController.getPrefConfig();
-        float sensitivity = getCameraSensitivity();
-        float density = Math.max(0.1f, getResources().getDisplayMetrics().density);
-        float deltaToImpulseScale = sensitivity /
-                (density * CAMERA_FULL_STICK_SPEED_DP_PER_SECOND);
+        cameraSettings.sensitivity = getCameraSensitivity();
+        cameraSettings.slowBoost = config.oscRightStickSlowBoost / 100.0f;
+        cameraSettings.antiDeadzone = config.oscRightStickAntiDeadzone / 100.0f;
+        cameraSettings.edgeHold = config.oscRightStickEdgeHold;
 
-        // Convert touch distance into a time-equivalent stick impulse. Consuming this impulse over
-        // subsequent display frames makes total camera rotation proportional to total finger
-        // travel, even when touch and display sample rates differ.
-        cameraPendingImpulseX += cameraPendingDeltaX * deltaToImpulseScale;
-        cameraPendingImpulseY += -cameraPendingDeltaY * deltaToImpulseScale;
-        cameraPendingDeltaX = 0;
-        cameraPendingDeltaY = 0;
-
-        float pendingMagnitude = (float) Math.sqrt(
-                cameraPendingImpulseX * cameraPendingImpulseX +
-                        cameraPendingImpulseY * cameraPendingImpulseY);
-        if (pendingMagnitude > CAMERA_MAX_PENDING_IMPULSE_SECONDS) {
-            float pendingScale = CAMERA_MAX_PENDING_IMPULSE_SECONDS / pendingMagnitude;
-            cameraPendingImpulseX *= pendingScale;
-            cameraPendingImpulseY *= pendingScale;
-        }
-
-        float deliverySeconds = Math.max(elapsedSeconds, CAMERA_DELIVERY_HORIZON_SECONDS);
-        float targetX = cameraPendingImpulseX / deliverySeconds;
-        float targetY = cameraPendingImpulseY / deliverySeconds;
-        float targetMagnitude = (float) Math.sqrt(targetX * targetX + targetY * targetY);
-
-        if (targetMagnitude > 1.0f) {
-            targetX /= targetMagnitude;
-            targetY /= targetMagnitude;
-        } else if (targetMagnitude < CAMERA_NOISE_FLOOR) {
-            // Keep the pending impulse so a very slow swipe builds up instead of being dropped
-            targetX = 0;
-            targetY = 0;
-        }
-
-        if (targetX != 0 || targetY != 0) {
-            cameraPendingImpulseX -= targetX * elapsedSeconds;
-            cameraPendingImpulseY -= targetY * elapsedSeconds;
-        }
-
-        // Lift slow swipes with a power curve; fast swipes near full deflection barely change
-        targetMagnitude = (float) Math.sqrt(targetX * targetX + targetY * targetY);
-        float slowBoostExponent = 1.0f - 0.5f * config.oscRightStickSlowBoost / 100.0f;
-        if (targetMagnitude > 0 && targetMagnitude < 1.0f && slowBoostExponent < 1.0f) {
-            float boostedMagnitude = (float) Math.pow(targetMagnitude, slowBoostExponent);
-            targetX *= boostedMagnitude / targetMagnitude;
-            targetY *= boostedMagnitude / targetMagnitude;
-        }
-
-        // Holding the finger against the ring keeps turning, like a regular stick at its edge
-        if (cameraAtEdge && config.oscRightStickEdgeHold) {
-            targetX += cameraEdgeDirX * CAMERA_EDGE_HOLD_OUTPUT;
-            targetY += cameraEdgeDirY * CAMERA_EDGE_HOLD_OUTPUT;
-        }
-
-        targetMagnitude = (float) Math.sqrt(targetX * targetX + targetY * targetY);
-        if (targetMagnitude > 1.0f) {
-            targetX /= targetMagnitude;
-            targetY /= targetMagnitude;
-            targetMagnitude = 1.0f;
-        }
-
-        // Games ignore small stick values inside their own deadzone. Start any non-zero output
-        // just past it so slow, precise swipes still move the camera.
-        float antiDeadzone = config.oscRightStickAntiDeadzone / 100.0f;
-        if (targetMagnitude > 0 && antiDeadzone > 0) {
-            float boostedMagnitude = antiDeadzone + (1.0f - antiDeadzone) * targetMagnitude;
-            targetX *= boostedMagnitude / targetMagnitude;
-            targetY *= boostedMagnitude / targetMagnitude;
-        }
-
-        boolean outputChanged = Float.compare(cameraOutputX, targetX) != 0 ||
-                Float.compare(cameraOutputY, targetY) != 0;
-        cameraOutputX = targetX;
-        cameraOutputY = targetY;
+        CameraStickModel model = getCameraModel();
+        boolean outputChanged = model.update(frameTimeNanos, cameraSettings,
+                cameraAtEdge, cameraEdgeDirX, cameraEdgeDirY);
+        float outputX = model.getOutputX();
+        float outputY = model.getOutputY();
 
         float maxMovement = radius_complete - radius_analog_stick;
-        position_stick_x = getCenterX() + cameraOutputX * maxMovement;
-        position_stick_y = getCenterY() - cameraOutputY * maxMovement;
-        stick_state = cameraOutputX == 0 && cameraOutputY == 0 ?
+        position_stick_x = getCenterX() + outputX * maxMovement;
+        position_stick_y = getCenterY() - outputY * maxMovement;
+        stick_state = outputX == 0 && outputY == 0 ?
                 STICK_STATE.MOVED_IN_DEAD_ZONE : STICK_STATE.MOVED_ACTIVE;
 
         if (outputChanged) {
-            notifyOnMovement(cameraOutputX, cameraOutputY);
+            notifyOnMovement(outputX, outputY);
         }
         invalidate();
     }
@@ -760,15 +662,9 @@ public class AnalogStick extends VirtualControllerElement {
                 }
                 summonedCenterX = event.getX();
                 summonedCenterY = event.getY();
-                cameraLastTouchX = event.getX();
-                cameraLastTouchY = event.getY();
-                cameraPendingDeltaX = 0;
-                cameraPendingDeltaY = 0;
-                cameraPendingImpulseX = 0;
-                cameraPendingImpulseY = 0;
-                cameraLastFrameTimeNanos = 0;
-                cameraOutputX = 0;
-                cameraOutputY = 0;
+                getCameraModel().startTouch(event.getX(), event.getY());
+                mouseLastTouchX = event.getX();
+                mouseLastTouchY = event.getY();
                 cameraAtEdge = false;
                 mouseRemainderX = 0;
                 mouseRemainderY = 0;
