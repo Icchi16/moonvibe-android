@@ -10,10 +10,12 @@ final class RingGeometry {
 
     static final float PRIMARY_OFFSET = 0.32f;
     static final float PRIMARY_RADIUS = 0.18f;
-    static final float PRIMARY_ZONE = 0.22f;
+    /** Just past the drawn circle: the big button is easy to hit already. */
+    static final float PRIMARY_ZONE = 0.19f;
     static final float SMALL_DISTANCE = 0.44f;
     static final float SMALL_RADIUS = 0.085f;
-    static final float OUTER_ZONE = 0.62f;
+    /** A little past the outer edge of the small buttons (0.44 + 0.085). */
+    static final float OUTER_ZONE = 0.56f;
 
     private RingGeometry() {
     }

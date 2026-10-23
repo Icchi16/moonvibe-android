@@ -31,7 +31,7 @@ public class RingGeometryTest {
     @Test
     public void centreIsThePrimaryButton() {
         assertEquals(RingGeometry.ZONE_PRIMARY, RingGeometry.zoneAt(0, 0, SIDE, 4));
-        assertEquals(RingGeometry.ZONE_PRIMARY, zone(30, 21, 4));
+        assertEquals(RingGeometry.ZONE_PRIMARY, zone(30, 18, 4));
     }
 
     @Test
@@ -44,7 +44,7 @@ public class RingGeometryTest {
     @Test
     public void missOutsideTheButtonStillPicksTheNearestSlice() {
         // Between the second and third button, closer to the second, near the outer edge
-        assertEquals(2, zone(222, 58, 4));
+        assertEquals(2, zone(222, 54, 4));
         assertEquals(3, zone(228, 30, 4));
     }
 
@@ -53,7 +53,7 @@ public class RingGeometryTest {
         // Down and to the right of the primary button there are no small buttons
         assertEquals(RingGeometry.ZONE_NONE, zone(45, 40, 4));
         // Beyond the outer edge of the ring
-        assertEquals(RingGeometry.ZONE_NONE, zone(225, 70, 4));
+        assertEquals(RingGeometry.ZONE_NONE, zone(225, 60, 4));
     }
 
     @Test

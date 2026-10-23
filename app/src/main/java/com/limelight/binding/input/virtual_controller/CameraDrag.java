@@ -73,6 +73,13 @@ class CameraDrag {
         addSample(event.getX() + offsetX, event.getY() + offsetY);
     }
 
+    /** Add one finger position, in the same coordinates as {@link #start}. */
+    void addPoint(float x, float y) {
+        if (active) {
+            addSample(x, y);
+        }
+    }
+
     private void addSample(float x, float y) {
         if (isMouseMode()) {
             float scale = MOUSE_COUNTS_PER_DP * sensitivity() / density;

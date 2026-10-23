@@ -358,7 +358,8 @@ public class VirtualController {
                 continue;
             }
             if (element.elementId == VirtualControllerElement.EID_RS ||
-                    (element instanceof DigitalButton && ((DigitalButton) element).isAimFire())) {
+                    (element instanceof DigitalButton && ((DigitalButton) element).isAimFire()) ||
+                    (element instanceof RingButtons && ((RingButtons) element).isAiming())) {
                 return true;
             }
         }
@@ -489,9 +490,14 @@ public class VirtualController {
         final int count = ring.getSmallCount();
         final String[] options = new String[count + 3];
         options[0] = context.getString(R.string.osc_ring_count, count);
-        options[1] = context.getString(R.string.osc_ring_primary, GamepadAction.label(ring.getPrimaryAction()));
-        for (int i = 0; i < count; i++) {
-            options[i + 2] = context.getString(R.string.osc_ring_small, i + 1, GamepadAction.label(ring.getSmallAction(i)));
+        for (int zone = 0; zone <= count; zone++) {
+            String label = zone == 0 ?
+                    context.getString(R.string.osc_ring_primary, GamepadAction.label(ring.getZoneAction(zone))) :
+                    context.getString(R.string.osc_ring_small, zone, GamepadAction.label(ring.getZoneAction(zone)));
+            if (ring.isZoneAim(zone)) {
+                label += " \u00B7 Aim+Fire";
+            }
+            options[zone + 1] = label;
         }
         options[count + 2] = context.getString(ring.isHiddenByUser() ? R.string.osc_element_show : R.string.osc_element_hide);
 
@@ -501,24 +507,37 @@ public class VirtualController {
                     public void onClick(android.content.DialogInterface dialog, int which) {
                         if (which == 0) {
                             showRingCountPicker(ring);
-                        } else if (which == 1) {
-                            showActionPicker(ring.getPrimaryAction(), new ActionPicked() {
-                                @Override
-                                public void onPicked(int action) {
-                                    ring.setPrimaryAction(action);
-                                }
-                            });
                         } else if (which < count + 2) {
-                            final int index = which - 2;
-                            showActionPicker(ring.getSmallAction(index), new ActionPicked() {
-                                @Override
-                                public void onPicked(int action) {
-                                    ring.setSmallAction(index, action);
-                                }
-                            });
+                            showRingButtonOptions(ring, which - 1);
                         } else {
                             ring.setHiddenByUser(!ring.isHiddenByUser());
                             updateElementVisibility();
+                        }
+                    }
+                })
+                .show();
+    }
+
+    /** What one button of the ring sends, and whether it aims. */
+    private void showRingButtonOptions(final RingButtons ring, final int zone) {
+        String[] options = {
+                context.getString(R.string.osc_element_send, GamepadAction.label(ring.getZoneAction(zone))),
+                context.getString(ring.isZoneAim(zone) ? R.string.osc_element_aim_fire_on :
+                        R.string.osc_element_aim_fire_off),
+        };
+        new android.app.AlertDialog.Builder(context)
+                .setItems(options, new android.content.DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(android.content.DialogInterface dialog, int which) {
+                        if (which == 0) {
+                            showActionPicker(ring.getZoneAction(zone), new ActionPicked() {
+                                @Override
+                                public void onPicked(int action) {
+                                    ring.setZoneAction(zone, action);
+                                }
+                            });
+                        } else {
+                            ring.setZoneAim(zone, !ring.isZoneAim(zone));
                         }
                     }
                 })
