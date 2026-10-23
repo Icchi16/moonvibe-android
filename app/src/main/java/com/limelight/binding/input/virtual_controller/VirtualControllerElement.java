@@ -50,6 +50,7 @@ public abstract class VirtualControllerElement extends View {
     private int configMoveColor = 0xF0FF0000;
     private int configResizeColor = 0xF0FF00FF;
     private int configSelectedColor = 0xF000FF00;
+    private int configResizeHandleColor = 0xFFFFC107;
 
     protected int startSize_x;
     protected int startSize_y;
@@ -249,6 +250,7 @@ public abstract class VirtualControllerElement extends View {
                 resizeHandlePath.lineTo(getWidth() - handle, getHeight());
                 resizeHandlePath.close();
                 paint.setStyle(Paint.Style.FILL);
+                paint.setColor(configResizeHandleColor);
                 canvas.drawPath(resizeHandlePath, paint);
             }
         }
