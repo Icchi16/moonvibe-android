@@ -282,6 +282,65 @@ public class StreamSettings extends Activity {
             slowBoost.setEnabled(stickCamera);
         }
 
+        /** The profile row at the top of the on-screen controls page. */
+        private void setUpProfilePreference() {
+            final Preference profilePreference = findPreference("osc_active_profile");
+            if (profilePreference == null) {
+                return;
+            }
+            final OscProfiles profiles = new OscProfiles(getActivity());
+            profilePreference.setSummary(getString(R.string.summary_osc_active_profile, profiles.getActiveName()));
+            profilePreference.setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
+                @Override
+                public boolean onPreferenceClick(Preference preference) {
+                    showProfilePicker(profiles);
+                    return true;
+                }
+            });
+        }
+
+        private void showProfilePicker(final OscProfiles profiles) {
+            final Activity activity = getActivity();
+            final java.util.List<OscProfiles.Profile> all = profiles.getProfiles();
+            String[] names = new String[all.size()];
+            int checked = 0;
+            for (int i = 0; i < all.size(); i++) {
+                names[i] = all.get(i).name;
+                if (all.get(i).id.equals(profiles.getActiveId())) {
+                    checked = i;
+                }
+            }
+            new android.app.AlertDialog.Builder(activity)
+                    .setTitle(R.string.osc_profile_pick_title)
+                    .setSingleChoiceItems(names, checked, new android.content.DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(android.content.DialogInterface dialog, int which) {
+                            dialog.dismiss();
+                            String id = all.get(which).id;
+                            if (!id.equals(profiles.getActiveId())) {
+                                profiles.switchTo(id);
+                                // Show the newly loaded values on every page
+                                activity.recreate();
+                            }
+                        }
+                    })
+                    .setNeutralButton(R.string.osc_menu_profile_new, new android.content.DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(android.content.DialogInterface dialog, int which) {
+                            OscProfileDialogs.showNameDialog(activity, R.string.osc_profile_new_title,
+                                    profiles.suggestNewName(), new OscProfileDialogs.NameCallback() {
+                                @Override
+                                public void onName(String name) {
+                                    profiles.createFromActive(name);
+                                    setUpProfilePreference();
+                                }
+                            });
+                        }
+                    })
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show();
+        }
+
         @Override
         public void onCreate(Bundle savedInstanceState) {
             super.onCreate(savedInstanceState);
@@ -318,6 +377,8 @@ public class StreamSettings extends Activity {
                     }
                 });
             }
+
+            setUpProfilePreference();
 
             // hide the on-screen controls page on non touch screen devices
             if (!getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN)) {

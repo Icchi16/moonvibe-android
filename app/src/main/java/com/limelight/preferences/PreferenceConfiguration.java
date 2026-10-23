@@ -445,6 +445,26 @@ public class PreferenceConfiguration {
         }
     }
 
+    /** Take the on-screen control settings that belong to a profile from another config. */
+    public void copyOscProfileSettingsFrom(PreferenceConfiguration other) {
+        onlyL3R3 = other.onlyL3R3;
+        showGuideButton = other.showGuideButton;
+        oscOpacity = other.oscOpacity;
+        oscTouchAssist = other.oscTouchAssist;
+        oscFloatingJoystick = other.oscFloatingJoystick;
+        oscFloatingJoystickSize = other.oscFloatingJoystickSize;
+        oscDynamicCenter = other.oscDynamicCenter;
+        oscEditStickZones = other.oscEditStickZones;
+        oscSnap = other.oscSnap;
+        oscRightStickCameraMode = other.oscRightStickCameraMode;
+        oscRightStickMouseMode = other.oscRightStickMouseMode;
+        oscRightStickCameraSensitivity = other.oscRightStickCameraSensitivity;
+        oscRightStickAntiDeadzone = other.oscRightStickAntiDeadzone;
+        oscRightStickEdgeHold = other.oscRightStickEdgeHold;
+        oscRightStickSlowBoost = other.oscRightStickSlowBoost;
+        oscStickAntiDeadzone = other.oscStickAntiDeadzone;
+    }
+
     private static AnalogStickForScrolling getAnalogStickForScrollingValue(Context context) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
 

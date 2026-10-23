@@ -104,6 +104,10 @@
         android:key="screen_onscreen_controls"
         android:title="@string/title_screen_onscreen_controls"
         android:summary="@string/summary_screen_onscreen_controls">
+        <Preference
+            android:key="osc_active_profile"
+            android:persistent="false"
+            android:title="@string/title_osc_active_profile" />
         <PreferenceCategory android:title="@string/category_osc_general"
             android:key="category_onscreen_controls">
             <CheckBoxPreference

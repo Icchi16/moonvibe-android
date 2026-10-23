@@ -15,8 +15,13 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.limelight.R;
+import com.limelight.preferences.OscProfileDialogs;
+import com.limelight.preferences.OscProfiles;
+
+import java.util.List;
 
 /**
  * The single menu button on top of the on-screen controls, the panel it opens, and the toolbar
@@ -40,6 +45,9 @@ class OscMenu {
         void disconnect();
         /** End the stream and quit the app running on the host. */
         void terminate();
+        OscProfiles getProfiles();
+        /** Load the settings and layout of the profile that was just made active. */
+        void reloadProfile();
         /** Hold one stick pushed right by this percentage, or let go of it at 0. */
         void holdCalibrationStick(boolean rightStick, int percent);
         int getStickAntiDeadzone(boolean rightStick);
@@ -84,6 +92,9 @@ class OscMenu {
     private TextView calibrationValue;
     private TextView calibrationHint;
     private SeekBar calibrationSeekBar;
+
+    private TextView profileHeader;
+    private LinearLayout profileList;
 
     private TextView gamepadChip;
     private TextView mouseChip;
@@ -243,6 +254,7 @@ class OscMenu {
 
     private void openPanel() {
         actions.releaseAllInputs();
+        profileList.setVisibility(View.GONE);
         refreshPanel();
         scrim.setVisibility(View.VISIBLE);
         panel.setVisibility(View.VISIBLE);
@@ -276,6 +288,14 @@ class OscMenu {
     }
 
     private void refreshPanel() {
+        OscProfiles profiles = actions.getProfiles();
+        boolean listOpen = profileList.getVisibility() == View.VISIBLE;
+        profileHeader.setText(context.getString(R.string.osc_menu_profile, profiles.getActiveName()) +
+                (listOpen ? "  \u25B4" : "  \u25BE"));
+        if (listOpen) {
+            rebuildProfileList(profiles);
+        }
+
         boolean mouseMode = actions.isMouseMode();
         setChipSelected(gamepadChip, !mouseMode);
         setChipSelected(mouseChip, mouseMode);
@@ -299,6 +319,22 @@ class OscMenu {
         content.setOrientation(LinearLayout.VERTICAL);
         int padding = dp(12);
         content.setPadding(padding, padding, padding, padding);
+
+        profileHeader = itemText(R.string.osc_menu_profile_none);
+        profileHeader.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        profileHeader.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                profileList.setVisibility(profileList.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
+                refreshPanel();
+            }
+        });
+        content.addView(profileHeader);
+        profileList = new LinearLayout(context);
+        profileList.setOrientation(LinearLayout.VERTICAL);
+        profileList.setVisibility(View.GONE);
+        content.addView(profileList);
+        content.addView(divider());
 
         LinearLayout modeRow = chipRow();
         gamepadChip = chip(R.string.osc_menu_gamepad);
@@ -439,6 +475,85 @@ class OscMenu {
             }
         });
         return item;
+    }
+
+    private void rebuildProfileList(final OscProfiles profiles) {
+        profileList.removeAllViews();
+        String activeId = profiles.getActiveId();
+        List<OscProfiles.Profile> all = profiles.getProfiles();
+        for (final OscProfiles.Profile profile : all) {
+            final boolean active = profile.id.equals(activeId);
+            TextView row = itemText(R.string.osc_menu_profile_none);
+            row.setText(profile.name);
+            row.setSingleLine(true);
+            row.setMinHeight(dp(44));
+            row.setPadding(dp(12), 0, dp(12), 0);
+            row.setBackground(roundRect(active ? CHIP_SELECTED_COLOR : CHIP_COLOR, dp(10)));
+            row.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (active) {
+                        return;
+                    }
+                    profiles.switchTo(profile.id);
+                    onActiveProfileChanged(profiles);
+                }
+            });
+            row.setOnLongClickListener(new View.OnLongClickListener() {
+                @Override
+                public boolean onLongClick(View v) {
+                    OscProfileDialogs.showProfileOptions(context, profiles, profile,
+                            new OscProfileDialogs.ChangeCallback() {
+                                @Override
+                                public void onChanged() {
+                                    refreshPanel();
+                                }
+                            },
+                            new OscProfileDialogs.ChangeCallback() {
+                                @Override
+                                public void onChanged() {
+                                    onActiveProfileChanged(profiles);
+                                }
+                            });
+                    return true;
+                }
+            });
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            params.bottomMargin = dp(6);
+            profileList.addView(row, params);
+        }
+
+        TextView newProfile = itemText(R.string.osc_menu_profile_new);
+        newProfile.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                OscProfileDialogs.showNameDialog(context, R.string.osc_profile_new_title,
+                        profiles.suggestNewName(), new OscProfileDialogs.NameCallback() {
+                    @Override
+                    public void onName(String name) {
+                        // The new profile starts as a copy of this one, so nothing on screen changes
+                        profiles.createFromActive(name);
+                        refreshPanel();
+                    }
+                });
+            }
+        });
+        profileList.addView(newProfile);
+
+        TextView hint = label();
+        hint.setText(R.string.osc_menu_profile_hint);
+        hint.setTextColor(SECONDARY_TEXT_COLOR);
+        hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        hint.setPadding(dp(4), 0, dp(4), dp(4));
+        profileList.addView(hint);
+    }
+
+    private void onActiveProfileChanged(OscProfiles profiles) {
+        closePanel();
+        actions.reloadProfile();
+        Toast.makeText(context, context.getString(R.string.osc_menu_profile, profiles.getActiveName()),
+                Toast.LENGTH_SHORT).show();
     }
 
     private LinearLayout buildEditToolbar() {

@@ -18,6 +18,7 @@ import com.limelight.Game;
 import com.limelight.LimeLog;
 import com.limelight.R;
 import com.limelight.binding.input.ControllerHandler;
+import com.limelight.preferences.OscProfiles;
 import com.limelight.preferences.PreferenceConfiguration;
 
 import org.json.JSONException;
@@ -268,6 +269,16 @@ public class VirtualController {
         }
 
         @Override
+        public OscProfiles getProfiles() {
+            return new OscProfiles(context);
+        }
+
+        @Override
+        public void reloadProfile() {
+            VirtualController.this.reloadProfile();
+        }
+
+        @Override
         public void terminate() {
             if (context instanceof Game) {
                 ((Game) context).terminateSession();
@@ -275,6 +286,17 @@ public class VirtualController {
                 disconnect();
             }
         }
+    }
+
+    /** Load the settings and layout of the profile that was just made active. */
+    private void reloadProfile() {
+        releaseAllInputs();
+        prefConfig.copyOscProfileSettingsFrom(PreferenceConfiguration.readPreferences(context));
+        isJoystickMode = !context.getSharedPreferences(
+                VirtualControllerConfigurationLoader.OSC_PREFERENCE, Context.MODE_PRIVATE)
+                .getBoolean(MOUSE_MODE_PREF, false);
+        refreshLayout();
+        menu.show();
     }
 
     /** Let go of everything held on the controls, so the game is not left with a stuck input. */
