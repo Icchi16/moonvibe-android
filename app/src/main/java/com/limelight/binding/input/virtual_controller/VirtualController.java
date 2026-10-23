@@ -230,6 +230,8 @@ public class VirtualController {
 
     /** Extra reach around single buttons when touch assist is on. */
     private static final float TOUCH_ASSIST_SLOP_DP = 10.0f;
+    /** Size of the A/B/X/Y touch diamond relative to one that just contains the buttons. */
+    private static final float FACE_BLOCK_SCALE = 0.9f;
 
     private static boolean isFaceButton(VirtualControllerElement element) {
         return element.elementId == VirtualControllerElement.EID_A ||
@@ -247,9 +249,8 @@ public class VirtualController {
     /**
      * Finds the button a touch at (x, y) in layout coordinates was most likely aimed at, for a
      * touch that missed every button and would otherwise reach a joystick zone behind them.
-     * The A/B/X/Y block is a diamond split into four smaller diamonds, one per face button, each
-     * centered on its button and just large enough to hold the button's square. Other buttons
-     * reach a little past their edges.
+     * The A/B/X/Y block is a diamond around the buttons, split between them by nearest center,
+     * so there are no gaps between face buttons. Other buttons reach a little past their edges.
      */
     VirtualControllerElement findTouchAssistTarget(float x, float y) {
         if (prefConfig == null || !prefConfig.oscTouchAssist) {
@@ -275,18 +276,25 @@ public class VirtualController {
             centroidX /= faceButtons.size();
             centroidY /= faceButtons.size();
 
+            // The block's diamond, scaled around its center: at full size it would just contain
+            // every button's square
+            float averageOffset = 0;
             for (VirtualControllerElement element : faceButtons) {
-                float buttonX = element.getX() + element.getWidth() / 2f;
-                float buttonY = element.getY() + element.getHeight() / 2f;
-                // Diamond around the button reaching halfway to the block's center on each side
-                float halfDiagonal = Math.abs(buttonX - centroidX) + Math.abs(buttonY - centroidY);
-                float diamondDistance = Math.abs(x - buttonX) + Math.abs(y - buttonY);
-                if (diamondDistance <= halfDiagonal && diamondDistance < bestDistance) {
-                    best = element;
-                    bestDistance = diamondDistance;
-                }
+                averageOffset += Math.abs(element.getX() + element.getWidth() / 2f - centroidX) +
+                        Math.abs(element.getY() + element.getHeight() / 2f - centroidY);
             }
-            if (best != null) {
+            averageOffset /= faceButtons.size();
+            float blockHalfDiagonal = 2 * averageOffset * FACE_BLOCK_SCALE;
+
+            if (Math.abs(x - centroidX) + Math.abs(y - centroidY) <= blockHalfDiagonal) {
+                // Splitting by nearest center cuts the diamond into one smaller diamond per button
+                for (VirtualControllerElement element : faceButtons) {
+                    float distance = distanceToCenter(element, x, y);
+                    if (distance < bestDistance) {
+                        best = element;
+                        bestDistance = distance;
+                    }
+                }
                 return best;
             }
         }
