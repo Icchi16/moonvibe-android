@@ -204,7 +204,7 @@
                 android:key="seekbar_osc_stick_anti_deadzone"
                 android:dependency="checkbox_show_onscreen_controls"
                 android:defaultValue="10"
-                android:max="40"
+                android:max="50"
                 seekbar:min="0"
                 seekbar:step="1"
                 android:dialogMessage="@string/summary_osc_stick_anti_deadzone"

@@ -230,6 +230,37 @@ public class VirtualController {
         }
 
         @Override
+        public void holdCalibrationStick(boolean rightStick, int percent) {
+            short value = (short) (percent * 0x7FFE / 100);
+            if (rightStick) {
+                inputContext.rightStickX = value;
+                inputContext.rightStickY = 0;
+            } else {
+                inputContext.leftStickX = value;
+                inputContext.leftStickY = 0;
+            }
+            sendControllerInputContext();
+        }
+
+        @Override
+        public int getStickAntiDeadzone(boolean rightStick) {
+            return rightStick ? prefConfig.oscRightStickAntiDeadzone : prefConfig.oscStickAntiDeadzone;
+        }
+
+        @Override
+        public void setStickAntiDeadzone(boolean rightStick, int percent) {
+            if (rightStick) {
+                prefConfig.oscRightStickAntiDeadzone = percent;
+            } else {
+                prefConfig.oscStickAntiDeadzone = percent;
+            }
+            PreferenceManager.getDefaultSharedPreferences(context).edit()
+                    .putInt(rightStick ? PreferenceConfiguration.OSC_RIGHT_STICK_ANTI_DEADZONE_PREF_STRING :
+                            PreferenceConfiguration.OSC_STICK_ANTI_DEADZONE_PREF_STRING, percent)
+                    .apply();
+        }
+
+        @Override
         public void disconnect() {
             if (context instanceof Activity) {
                 ((Activity) context).finish();

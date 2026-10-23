@@ -53,6 +53,15 @@
     <string name="osc_menu_camera_sensitivity">Độ nhạy camera: %1$d%%</string>
     <string name="osc_menu_opacity">Độ rõ của nút: %1$d%%</string>
     <string name="osc_menu_disconnect">Ngắt kết nối</string>
+    <string name="osc_menu_calibrate">Hiệu chỉnh deadzone</string>
+    <string name="osc_calibrate_camera">Camera</string>
+    <string name="osc_calibrate_move">Di chuyển</string>
+    <string name="osc_calibrate_hint_camera">Tăng dần đến khi camera trong game vừa bắt đầu xoay chậm, rồi bấm Lưu.</string>
+    <string name="osc_calibrate_hint_move">Tăng dần đến khi nhân vật vừa bắt đầu bước đi, rồi bấm Lưu.</string>
+    <string name="osc_calibrate_value">Đang giữ stick ở %1$d%%</string>
+    <string name="osc_calibrate_minus">−</string>
+    <string name="osc_calibrate_plus">+</string>
+    <string name="osc_calibrate_save">Lưu</string>
     <string name="osc_menu_disconnect_confirm">Bấm lần nữa để ngắt kết nối</string>
     <string name="osc_edit_done">Xong</string>
     <string name="osc_edit_cancel">Huỷ</string>
@@ -71,8 +80,8 @@
     <string name="osc_right_stick_mode_mouse">Chuột (vuốt để nhìn)</string>
     <string name="title_osc_right_stick_camera_sensitivity">Độ nhạy camera cảm ứng</string>
     <string name="summary_osc_right_stick_camera_sensitivity">Điều chỉnh mức camera quay theo chuyển động ngón tay</string>
-    <string name="title_osc_right_stick_anti_deadzone">Bù deadzone camera</string>
-    <string name="summary_osc_right_stick_anti_deadzone">Vượt qua deadzone của game để vuốt chậm camera vẫn quay (chế độ delta / tốc độ)</string>
+    <string name="title_osc_right_stick_anti_deadzone">Deadzone của game, camera</string>
+    <string name="summary_osc_right_stick_anti_deadzone">Vượt qua deadzone của game để vuốt chậm camera vẫn quay. Tìm số đúng bằng mục Hiệu chỉnh deadzone trong menu khi đang chơi</string>
     <string name="title_osc_right_stick_slow_boost">Tăng cường vuốt chậm</string>
     <string name="summary_osc_right_stick_slow_boost">Vuốt chậm, nhẹ vẫn quay camera đủ mạnh mà không đổi cảm giác vuốt nhanh (chế độ delta / tốc độ)</string>
     <string name="title_osc_right_stick_edge_hold">Giữ ở mép để quay tiếp</string>
@@ -81,8 +90,8 @@
     <string name="summary_osc_floating_joystick_size">Điều chỉnh kích thước của cần điều khiển nổi</string>
     <string name="title_osc_snap">Hút vào vị trí</string>
     <string name="summary_osc_snap">Hút các phím điều khiển vào cạnh và tâm của các phím khác khi di chuyển</string>
-    <string name="title_osc_stick_anti_deadzone">Bù deadzone cho cần điều khiển</string>
-    <string name="summary_osc_stick_anti_deadzone">Vượt qua deadzone của game để đẩy nhẹ cũng đã di chuyển (chế độ vị trí)</string>
+    <string name="title_osc_stick_anti_deadzone">Deadzone của game, joystick</string>
+    <string name="summary_osc_stick_anti_deadzone">Vượt qua deadzone của game để đẩy nhẹ cũng đã di chuyển. Tìm số đúng bằng mục Hiệu chỉnh deadzone trong menu khi đang chơi</string>
     <string name="title_osc_edit_stick_zones">Cho phép chỉnh vùng cần điều khiển</string>
     <string name="summary_osc_edit_stick_zones">Cho phép kéo và đổi cỡ vùng cần điều khiển nổi khi chỉnh bố cục</string>
     <string name="title_osc_touch_assist">Hỗ trợ bấm nút</string>

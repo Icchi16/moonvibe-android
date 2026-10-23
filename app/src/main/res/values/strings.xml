@@ -223,6 +223,15 @@
     <string name="osc_menu_camera_sensitivity">Camera sensitivity: %1$d%%</string>
     <string name="osc_menu_opacity">Button opacity: %1$d%%</string>
     <string name="osc_menu_disconnect">Disconnect</string>
+    <string name="osc_menu_calibrate">Calibrate deadzone</string>
+    <string name="osc_calibrate_camera">Camera</string>
+    <string name="osc_calibrate_move">Movement</string>
+    <string name="osc_calibrate_hint_camera">Raise the value until the camera in the game just starts turning slowly, then tap Save.</string>
+    <string name="osc_calibrate_hint_move">Raise the value until your character just starts walking, then tap Save.</string>
+    <string name="osc_calibrate_value">Stick held at %1$d%%</string>
+    <string name="osc_calibrate_minus">−</string>
+    <string name="osc_calibrate_plus">+</string>
+    <string name="osc_calibrate_save">Save</string>
     <string name="osc_menu_disconnect_confirm">Tap again to disconnect</string>
     <string name="osc_edit_done">Done</string>
     <string name="osc_edit_cancel">Cancel</string>
@@ -243,8 +252,8 @@
     <string name="osc_right_stick_mode_mouse">Mouse (swipe to look)</string>
     <string name="title_osc_right_stick_camera_sensitivity">Camera touch sensitivity</string>
     <string name="summary_osc_right_stick_camera_sensitivity">Adjust how strongly finger movement turns the camera</string>
-    <string name="title_osc_right_stick_anti_deadzone">Camera anti-deadzone</string>
-    <string name="summary_osc_right_stick_anti_deadzone">Skip past the game\'s stick deadzone so slow swipes still turn the camera (delta / velocity mode)</string>
+    <string name="title_osc_right_stick_anti_deadzone">Game deadzone, camera</string>
+    <string name="summary_osc_right_stick_anti_deadzone">Skip past the game\'s stick deadzone so slow swipes still turn the camera. Find the right value with Calibrate deadzone in the in-game menu</string>
     <string name="title_osc_right_stick_slow_boost">Slow swipe boost</string>
     <string name="summary_osc_right_stick_slow_boost">Make slow, precise swipes turn the camera more without changing fast swipes (delta / velocity mode)</string>
     <string name="title_osc_right_stick_edge_hold">Keep turning at the edge</string>
@@ -253,8 +262,8 @@
     <string name="summary_osc_floating_joystick_size">Adjust the size of the floating joystick</string>
     <string name="title_osc_snap">Snap to position</string>
     <string name="summary_osc_snap">Snap controls to edges and centers of other controls while moving</string>
-    <string name="title_osc_stick_anti_deadzone">Joystick anti-deadzone</string>
-    <string name="summary_osc_stick_anti_deadzone">Skip past the game\'s stick deadzone so small pushes already move (position mode)</string>
+    <string name="title_osc_stick_anti_deadzone">Game deadzone, joysticks</string>
+    <string name="summary_osc_stick_anti_deadzone">Skip past the game\'s stick deadzone so small pushes already move. Find the right value with Calibrate deadzone in the in-game menu</string>
     <string name="title_osc_edit_stick_zones">Allow editing joystick zones</string>
     <string name="summary_osc_edit_stick_zones">Let the layout editor move and resize the floating joystick zones</string>
     <string name="title_osc_touch_assist">Touch assist for buttons</string>

@@ -38,6 +38,10 @@ class OscMenu {
         void setHapticsLevel(String level);
         void releaseAllInputs();
         void disconnect();
+        /** Hold one stick pushed right by this percentage, or let go of it at 0. */
+        void holdCalibrationStick(boolean rightStick, int percent);
+        int getStickAntiDeadzone(boolean rightStick);
+        void setStickAntiDeadzone(boolean rightStick, int percent);
     }
 
     private static final int BUTTON_SIZE_DP = 48;
@@ -47,6 +51,7 @@ class OscMenu {
     private static final float ACTIVE_ALPHA = 0.9f;
     private static final float IDLE_ALPHA = 0.3f;
     private static final int DISCONNECT_CONFIRM_MS = 3000;
+    private static final int CALIBRATION_MAX_PERCENT = 50;
 
     private static final int CAMERA_SENSITIVITY_MIN = 25;
     private static final int CAMERA_SENSITIVITY_MAX = 400;
@@ -67,6 +72,16 @@ class OscMenu {
     private final View scrim;
     private final ScrollView panel;
     private final LinearLayout editToolbar;
+    private final LinearLayout calibrationCard;
+
+    private boolean calibrating = false;
+    private boolean calibratingRightStick = true;
+    private int calibrationPercent = 0;
+    private TextView calibrationRightChip;
+    private TextView calibrationLeftChip;
+    private TextView calibrationValue;
+    private TextView calibrationHint;
+    private SeekBar calibrationSeekBar;
 
     private TextView gamepadChip;
     private TextView mouseChip;
@@ -127,7 +142,8 @@ class OscMenu {
         scrim.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
-                if (event.getActionMasked() == MotionEvent.ACTION_UP) {
+                // While calibrating, stray touches must not end it or reach the game
+                if (event.getActionMasked() == MotionEvent.ACTION_UP && !calibrating) {
                     closePanel();
                 }
                 return true;
@@ -141,6 +157,9 @@ class OscMenu {
 
         editToolbar = buildEditToolbar();
         editToolbar.setVisibility(View.GONE);
+
+        calibrationCard = buildCalibrationCard();
+        calibrationCard.setVisibility(View.GONE);
     }
 
     void attach(FrameLayout layout) {
@@ -167,6 +186,12 @@ class OscMenu {
         toolbarParams.topMargin = dp(BUTTON_MARGIN_DP);
         layout.addView(editToolbar, toolbarParams);
 
+        FrameLayout.LayoutParams calibrationParams = new FrameLayout.LayoutParams(
+                dp(360), FrameLayout.LayoutParams.WRAP_CONTENT);
+        calibrationParams.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
+        calibrationParams.topMargin = dp(BUTTON_MARGIN_DP);
+        layout.addView(calibrationCard, calibrationParams);
+
         scheduleFade();
     }
 
@@ -177,6 +202,7 @@ class OscMenu {
         layout.removeView(scrim);
         layout.removeView(panel);
         layout.removeView(editToolbar);
+        layout.removeView(calibrationCard);
     }
 
     void bringToFront() {
@@ -184,6 +210,7 @@ class OscMenu {
         scrim.bringToFront();
         panel.bringToFront();
         editToolbar.bringToFront();
+        calibrationCard.bringToFront();
     }
 
     void show() {
@@ -192,11 +219,13 @@ class OscMenu {
     }
 
     void hide() {
+        finishCalibration(false);
         closePanel();
         menuButton.setVisibility(View.INVISIBLE);
     }
 
     void setEditing(boolean editing) {
+        finishCalibration(false);
         closePanel();
         editToolbar.setVisibility(editing ? View.VISIBLE : View.GONE);
         menuButton.setVisibility(editing ? View.INVISIBLE : View.VISIBLE);
@@ -298,6 +327,12 @@ class OscMenu {
             @Override
             public void onClick(View v) {
                 actions.enterEditMode();
+            }
+        }));
+        content.addView(item(R.drawable.ic_gamepad, R.string.osc_menu_calibrate, new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startCalibration();
             }
         }));
 
@@ -428,6 +463,160 @@ class OscMenu {
         toolbar.addView(hint);
 
         return toolbar;
+    }
+
+    /**
+     * Find the game's stick deadzone: the app holds a stick slightly pushed and the user raises
+     * it until the game just starts to react. That value becomes the stick's anti-deadzone, so
+     * the smallest swipe starts right where the game begins to respond.
+     */
+    private void startCalibration() {
+        closePanel();
+        calibrating = true;
+        scrim.setVisibility(View.VISIBLE);
+        calibrationCard.setVisibility(View.VISIBLE);
+        bringToFront();
+        menuButton.setVisibility(View.INVISIBLE);
+        selectCalibrationStick(true);
+    }
+
+    private void selectCalibrationStick(boolean rightStick) {
+        if (calibrationPercent != 0) {
+            actions.holdCalibrationStick(calibratingRightStick, 0);
+        }
+        calibratingRightStick = rightStick;
+        setChipSelected(calibrationRightChip, rightStick);
+        setChipSelected(calibrationLeftChip, !rightStick);
+        calibrationHint.setText(rightStick ? R.string.osc_calibrate_hint_camera : R.string.osc_calibrate_hint_move);
+        setCalibrationPercent(Math.min(actions.getStickAntiDeadzone(rightStick), CALIBRATION_MAX_PERCENT));
+    }
+
+    private void setCalibrationPercent(int percent) {
+        calibrationPercent = Math.max(0, Math.min(percent, CALIBRATION_MAX_PERCENT));
+        calibrationValue.setText(context.getString(R.string.osc_calibrate_value, calibrationPercent));
+        if (calibrationSeekBar.getProgress() != calibrationPercent) {
+            calibrationSeekBar.setProgress(calibrationPercent);
+        }
+        actions.holdCalibrationStick(calibratingRightStick, calibrationPercent);
+    }
+
+    private void finishCalibration(boolean save) {
+        if (!calibrating) {
+            return;
+        }
+        calibrating = false;
+        actions.holdCalibrationStick(calibratingRightStick, 0);
+        if (save) {
+            actions.setStickAntiDeadzone(calibratingRightStick, calibrationPercent);
+        }
+        calibrationPercent = 0;
+        calibrationCard.setVisibility(View.GONE);
+        scrim.setVisibility(View.GONE);
+        menuButton.setVisibility(View.VISIBLE);
+        wakeButton();
+    }
+
+    private LinearLayout buildCalibrationCard() {
+        LinearLayout card = new LinearLayout(context);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setBackground(roundRect(PANEL_COLOR, dp(16)));
+        int padding = dp(12);
+        card.setPadding(padding, padding, padding, padding);
+
+        TextView title = label();
+        title.setText(R.string.osc_menu_calibrate);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        title.setPadding(dp(4), 0, dp(4), dp(4));
+        card.addView(title);
+
+        LinearLayout stickRow = chipRow();
+        calibrationRightChip = chip(R.string.osc_calibrate_camera);
+        calibrationLeftChip = chip(R.string.osc_calibrate_move);
+        calibrationRightChip.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                selectCalibrationStick(true);
+            }
+        });
+        calibrationLeftChip.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                selectCalibrationStick(false);
+            }
+        });
+        addChip(stickRow, calibrationRightChip);
+        addChip(stickRow, calibrationLeftChip);
+        card.addView(stickRow);
+
+        calibrationHint = new TextView(context);
+        calibrationHint.setTextColor(SECONDARY_TEXT_COLOR);
+        calibrationHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        calibrationHint.setPadding(dp(4), dp(6), dp(4), dp(6));
+        card.addView(calibrationHint);
+
+        calibrationValue = new TextView(context);
+        calibrationValue.setTextColor(TEXT_COLOR);
+        calibrationValue.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
+        calibrationValue.setGravity(Gravity.CENTER);
+        card.addView(calibrationValue);
+
+        LinearLayout sliderRow = new LinearLayout(context);
+        sliderRow.setOrientation(LinearLayout.HORIZONTAL);
+        sliderRow.setGravity(Gravity.CENTER_VERTICAL);
+        TextView minus = toolbarButton(R.string.osc_calibrate_minus, CHIP_COLOR);
+        minus.setMinWidth(dp(48));
+        minus.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                setCalibrationPercent(calibrationPercent - 1);
+            }
+        });
+        calibrationSeekBar = new SeekBar(context);
+        calibrationSeekBar.setMax(CALIBRATION_MAX_PERCENT);
+        calibrationSeekBar.setOnSeekBarChangeListener(new SeekBarListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                if (fromUser) {
+                    setCalibrationPercent(progress);
+                }
+            }
+        });
+        TextView plus = toolbarButton(R.string.osc_calibrate_plus, CHIP_COLOR);
+        plus.setMinWidth(dp(48));
+        plus.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                setCalibrationPercent(calibrationPercent + 1);
+            }
+        });
+        sliderRow.addView(minus);
+        sliderRow.addView(calibrationSeekBar, new LinearLayout.LayoutParams(0, dp(44), 1));
+        sliderRow.addView(plus);
+        card.addView(sliderRow);
+
+        LinearLayout buttons = new LinearLayout(context);
+        buttons.setOrientation(LinearLayout.HORIZONTAL);
+        buttons.setGravity(Gravity.END);
+        buttons.setPadding(0, dp(8), 0, 0);
+        TextView cancel = toolbarButton(R.string.osc_edit_cancel, CHIP_COLOR);
+        cancel.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                finishCalibration(false);
+            }
+        });
+        TextView save = toolbarButton(R.string.osc_calibrate_save, CHIP_SELECTED_COLOR);
+        save.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                finishCalibration(true);
+            }
+        });
+        buttons.addView(cancel);
+        buttons.addView(save);
+        card.addView(buttons);
+
+        return card;
     }
 
     private TextView toolbarButton(int text, int color) {
