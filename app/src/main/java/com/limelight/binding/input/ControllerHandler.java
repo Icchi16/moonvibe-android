@@ -38,6 +38,7 @@ import com.limelight.R;
 import com.limelight.binding.input.driver.AbstractController;
 import com.limelight.binding.input.driver.UsbDriverListener;
 import com.limelight.binding.input.driver.UsbDriverService;
+import com.limelight.binding.input.virtual_controller.TouchHaptics;
 import com.limelight.nvstream.NvConnection;
 import com.limelight.nvstream.input.ControllerPacket;
 import com.limelight.nvstream.input.MouseButtonPacket;
@@ -286,6 +287,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
         }
 
         deviceVibrator.cancel();
+        TouchHaptics.setRumbleActive(false);
     }
 
     public void destroy() {
@@ -1983,6 +1985,10 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
         short lowFreqMotorMSB = (short)((lowFreqMotor >> 8) & 0xFF);
         short highFreqMotorMSB = (short)((highFreqMotor >> 8) & 0xFF);
         int simulatedAmplitude = Math.min(255, (int)((lowFreqMotorMSB * 0.80) + (highFreqMotorMSB * 0.33)));
+
+        if (vibrator == deviceVibrator) {
+            TouchHaptics.setRumbleActive(simulatedAmplitude != 0);
+        }
 
         if (simulatedAmplitude == 0) {
             // This case is easy - just cancel the current effect and get out.

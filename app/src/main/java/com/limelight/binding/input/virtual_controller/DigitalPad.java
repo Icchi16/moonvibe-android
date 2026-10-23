@@ -163,6 +163,7 @@ public class DigitalPad extends VirtualControllerElement {
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
             case MotionEvent.ACTION_MOVE: {
+                int previousDirection = direction;
                 direction = 0;
 
                 if (event.getX() < getPercent(getWidth(), 33)) {
@@ -176,6 +177,11 @@ public class DigitalPad extends VirtualControllerElement {
                 }
                 if (event.getY() < getPercent(getHeight(), 33)) {
                     direction |= DIGITAL_PAD_DIRECTION_UP;
+                }
+                if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+                    virtualController.getHaptics().press();
+                } else if (direction != previousDirection && direction != 0) {
+                    virtualController.getHaptics().tick();
                 }
                 newDirectionCallback(direction);
                 invalidate();

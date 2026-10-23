@@ -205,8 +205,13 @@
     <string name="category_on_screen_controls_settings">On-screen Controls Settings</string>
     <string name="title_checkbox_show_onscreen_controls">Show on-screen controls</string>
     <string name="summary_checkbox_show_onscreen_controls">Show virtual controller overlay on touchscreen</string>
-    <string name="title_checkbox_vibrate_osc">Enable vibration</string>
-    <string name="summary_checkbox_vibrate_osc">Vibrates your device to emulate rumble for the on-screen controls</string>
+    <string name="title_checkbox_vibrate_osc">Game rumble on this device</string>
+    <string name="summary_checkbox_vibrate_osc">Vibrates your device when the game rumbles the on-screen controller</string>
+    <string name="title_osc_button_haptics">Vibrate on button press</string>
+    <string name="osc_button_haptics_off">Off</string>
+    <string name="osc_button_haptics_light">Light</string>
+    <string name="osc_button_haptics_medium">Medium</string>
+    <string name="osc_button_haptics_strong">Strong</string>
     <string name="title_only_l3r3">Only show L3 and R3</string>
     <string name="summary_only_l3r3">Hide all virtual buttons except L3 and R3</string>
     <string name="title_show_guide_button">Show Guide Button</string>

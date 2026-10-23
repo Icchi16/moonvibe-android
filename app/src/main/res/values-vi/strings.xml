@@ -35,8 +35,13 @@
     <string name="title_reset_osc">Xoá bộ cục điều khiển trên màn hình đã lưu</string>
     <string name="summary_only_l3r3">Ẩn tất cả nút ảo trừ L3 và R3</string>
     <string name="title_only_l3r3">Chỉ hiện L3 và R3</string>
-    <string name="summary_checkbox_vibrate_osc">Làm thiết bị rung để giả lập rumble đối với điều khiển trên màn hình</string>
-    <string name="title_checkbox_vibrate_osc">Bật rung</string>
+    <string name="summary_checkbox_vibrate_osc">Điện thoại rung khi game rung tay cầm ảo trên màn hình</string>
+    <string name="title_checkbox_vibrate_osc">Rung theo game (rumble)</string>
+    <string name="title_osc_button_haptics">Rung khi bấm nút</string>
+    <string name="osc_button_haptics_off">Tắt</string>
+    <string name="osc_button_haptics_light">Nhẹ</string>
+    <string name="osc_button_haptics_medium">Vừa</string>
+    <string name="osc_button_haptics_strong">Mạnh</string>
     <string name="summary_checkbox_show_onscreen_controls">Hiện bộ điều khiển ảo trên màn hình cảm ứng</string>
     <string name="title_checkbox_show_onscreen_controls">Hiện điều khiển trên màn hình</string>
     <string name="title_osc_floating_joystick">Cần điều khiển nổi</string>

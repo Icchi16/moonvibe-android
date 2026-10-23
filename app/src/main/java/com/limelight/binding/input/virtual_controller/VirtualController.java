@@ -46,6 +46,7 @@ public class VirtualController {
     private final Context context;
     private final Handler handler;
     private final PreferenceConfiguration prefConfig;
+    private final TouchHaptics haptics;
 
     private boolean isJoystickMode = true;
     private ImageButton buttonToggleMode;
@@ -74,6 +75,7 @@ public class VirtualController {
         this.context = context;
         this.handler = new Handler(Looper.getMainLooper());
         this.prefConfig = prefConfig;
+        this.haptics = new TouchHaptics(context, prefConfig.oscButtonHaptics);
 
         // Allow snap lines to be drawn outside of button bounds
         this.frame_layout.setClipChildren(false);
@@ -226,6 +228,10 @@ public class VirtualController {
 
     public PreferenceConfiguration getPrefConfig() {
         return prefConfig;
+    }
+
+    TouchHaptics getHaptics() {
+        return haptics;
     }
 
     /** Elements that move together with this one in the layout editor. */

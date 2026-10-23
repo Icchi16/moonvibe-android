@@ -152,6 +152,14 @@
             android:key="checkbox_show_onscreen_controls"
             android:summary="@string/summary_checkbox_show_onscreen_controls"
             android:title="@string/title_checkbox_show_onscreen_controls" />
+        <ListPreference
+            android:key="list_osc_button_haptics"
+            android:dependency="checkbox_show_onscreen_controls"
+            android:title="@string/title_osc_button_haptics"
+            android:summary="%s"
+            android:entries="@array/osc_button_haptics_names"
+            android:entryValues="@array/osc_button_haptics_values"
+            android:defaultValue="medium" />
         <CheckBoxPreference
             android:key="checkbox_vibrate_osc"
             android:dependency="checkbox_show_onscreen_controls"

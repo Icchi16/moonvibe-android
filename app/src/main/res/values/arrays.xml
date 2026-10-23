@@ -132,6 +132,19 @@
         <item>left</item>
     </string-array>
 
+    <string-array name="osc_button_haptics_names">
+        <item>@string/osc_button_haptics_off</item>
+        <item>@string/osc_button_haptics_light</item>
+        <item>@string/osc_button_haptics_medium</item>
+        <item>@string/osc_button_haptics_strong</item>
+    </string-array>
+    <string-array name="osc_button_haptics_values" translatable="false">
+        <item>off</item>
+        <item>light</item>
+        <item>medium</item>
+        <item>strong</item>
+    </string-array>
+
     <string-array name="osc_right_stick_mode_names">
         <item>@string/osc_right_stick_mode_position</item>
         <item>@string/osc_right_stick_mode_camera</item>

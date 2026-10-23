@@ -84,6 +84,7 @@ public class PreferenceConfiguration {
     public static final String OSC_STICK_ANTI_DEADZONE_PREF_STRING = "seekbar_osc_stick_anti_deadzone";
     public static final String OSC_EDIT_STICK_ZONES_PREF_STRING = "checkbox_osc_edit_stick_zones";
     public static final String OSC_TOUCH_ASSIST_PREF_STRING = "checkbox_osc_touch_assist";
+    private static final String OSC_BUTTON_HAPTICS_PREF_STRING = "list_osc_button_haptics";
 
     static final String DEFAULT_RESOLUTION = "1280x720";
     static final String DEFAULT_FPS = "60";
@@ -135,6 +136,7 @@ public class PreferenceConfiguration {
     public static final int DEFAULT_OSC_STICK_ANTI_DEADZONE = 10;
     public static final boolean DEFAULT_OSC_EDIT_STICK_ZONES = false;
     public static final boolean DEFAULT_OSC_TOUCH_ASSIST = true;
+    private static final String DEFAULT_OSC_BUTTON_HAPTICS = "medium";
 
     public static final int FRAME_PACING_MIN_LATENCY = 0;
     public static final int FRAME_PACING_BALANCED = 1;
@@ -195,6 +197,7 @@ public class PreferenceConfiguration {
     public int oscStickAntiDeadzone;
     public boolean oscEditStickZones;
     public boolean oscTouchAssist;
+    public String oscButtonHaptics;
 
     public static boolean isNativeResolution(int width, int height) {
         // It's not a native resolution if it matches an existing resolution option
@@ -665,6 +668,7 @@ public class PreferenceConfiguration {
         config.oscStickAntiDeadzone = prefs.getInt(OSC_STICK_ANTI_DEADZONE_PREF_STRING, DEFAULT_OSC_STICK_ANTI_DEADZONE);
         config.oscEditStickZones = prefs.getBoolean(OSC_EDIT_STICK_ZONES_PREF_STRING, DEFAULT_OSC_EDIT_STICK_ZONES);
         config.oscTouchAssist = prefs.getBoolean(OSC_TOUCH_ASSIST_PREF_STRING, DEFAULT_OSC_TOUCH_ASSIST);
+        config.oscButtonHaptics = prefs.getString(OSC_BUTTON_HAPTICS_PREF_STRING, DEFAULT_OSC_BUTTON_HAPTICS);
 
         return config;
     }

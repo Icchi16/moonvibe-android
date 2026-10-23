@@ -91,6 +91,7 @@ public class DigitalButton extends VirtualControllerElement {
             if (isPressed()) {
                 // is pressed set moving button and emit click event
                 this.movingButton = movingButton;
+                virtualController.getHaptics().tick();
                 onClickCallback();
             } else {
                 // no longer pressed reset moving button and emit release event
@@ -203,6 +204,7 @@ public class DigitalButton extends VirtualControllerElement {
             case MotionEvent.ACTION_DOWN: {
                 movingButton = null;
                 setPressed(true);
+                virtualController.getHaptics().press();
                 onClickCallback();
 
                 invalidate();
