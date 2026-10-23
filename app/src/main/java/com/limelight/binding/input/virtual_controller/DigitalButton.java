@@ -11,6 +11,7 @@ import android.graphics.Paint;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.view.MotionEvent;
+import android.view.ViewConfiguration;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -65,6 +66,13 @@ public class DigitalButton extends VirtualControllerElement {
     private int defaultAction = -1;
     private int action = -1;
     private boolean actionDown = false;
+
+    /** Aim+Fire: after pressing, dragging the same finger turns the camera. */
+    private boolean aimFire = false;
+    private CameraDrag cameraDrag;
+    private boolean aiming = false;
+    private float aimDownX;
+    private float aimDownY;
 
     boolean inRange(float x, float y) {
         return (this.getX() < x && this.getX() + this.getWidth() > x) &&
@@ -158,11 +166,33 @@ public class DigitalButton extends VirtualControllerElement {
         invalidate();
     }
 
+    boolean isAimFire() {
+        return aimFire;
+    }
+
+    void setAimFire(boolean aimFire) {
+        if (!aimFire && cameraDrag != null) {
+            cameraDrag.cancel();
+        }
+        this.aimFire = aimFire && canChangeAction();
+        invalidate();
+    }
+
+    private CameraDrag getCameraDrag() {
+        if (cameraDrag == null) {
+            cameraDrag = new CameraDrag(virtualController, getResources().getDisplayMetrics().density);
+        }
+        return cameraDrag;
+    }
+
     @Override
     public JSONObject getConfiguration() throws JSONException {
         JSONObject configuration = super.getConfiguration();
         if (canChangeAction() && action != defaultAction) {
             configuration.put("ACTION", action);
+        }
+        if (aimFire) {
+            configuration.put("AIM", true);
         }
         return configuration;
     }
@@ -173,6 +203,7 @@ public class DigitalButton extends VirtualControllerElement {
         if (canChangeAction()) {
             int savedAction = configuration.optInt("ACTION", defaultAction);
             action = GamepadAction.isValid(savedAction) ? savedAction : defaultAction;
+            setAimFire(configuration.optBoolean("AIM", false));
             invalidate();
         }
     }
@@ -216,6 +247,13 @@ public class DigitalButton extends VirtualControllerElement {
             String label = action != defaultAction ? GamepadAction.label(action) : text;
             canvas.drawText(label, getPercent(getWidth(), 50), getPercent(getHeight(), 63), paint);
         }
+
+        if (aimFire) {
+            // A small dot in the top right marks a button that also aims
+            paint.setStyle(Paint.Style.FILL);
+            float dotRadius = getPercent(Math.min(getWidth(), getHeight()), 7);
+            canvas.drawCircle(getWidth() - dotRadius * 2.2f, dotRadius * 2.2f, dotRadius, paint);
+        }
     }
 
     private void onClickCallback() {
@@ -256,8 +294,61 @@ public class DigitalButton extends VirtualControllerElement {
         virtualController.getHandler().removeCallbacks(longClickRunnable);
     }
 
+    /** Aim+Fire touch handling: the button stays held while the finger turns the camera. */
+    private boolean onAimFireTouchEvent(MotionEvent event) {
+        float x = getX() + event.getX();
+        float y = getY() + event.getY();
+
+        switch (event.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+                movingButton = null;
+                aiming = false;
+                aimDownX = x;
+                aimDownY = y;
+                setPressed(true);
+                virtualController.getHaptics().press();
+                onClickCallback();
+                invalidate();
+                return true;
+            case MotionEvent.ACTION_MOVE:
+                if (!aiming) {
+                    float slop = ViewConfiguration.get(getContext()).getScaledTouchSlop();
+                    if (Math.hypot(x - aimDownX, y - aimDownY) < slop) {
+                        return true;
+                    }
+                    // Start turning from here, so the slop itself causes no jump
+                    aiming = true;
+                    getCameraDrag().start(x, y);
+                    return true;
+                }
+                getCameraDrag().addMovement(event, getX(), getY());
+                return true;
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
+                if (aiming) {
+                    if (event.getActionMasked() == MotionEvent.ACTION_UP) {
+                        getCameraDrag().addMovement(event, getX(), getY());
+                        getCameraDrag().stop();
+                    } else {
+                        getCameraDrag().cancel();
+                    }
+                }
+                aiming = false;
+                setPressed(false);
+                onReleaseCallback();
+                invalidate();
+                return true;
+            default:
+                return true;
+        }
+    }
+
     @Override
     public boolean onElementTouchEvent(MotionEvent event) {
+        if (aimFire) {
+            return onAimFireTouchEvent(event);
+        }
+
         // get masked (not specific to a pointer) action
         float x = getX() + event.getX();
         float y = getY() + event.getY();

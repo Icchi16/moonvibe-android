@@ -99,6 +99,8 @@
     <string name="osc_preset_classic_short">Cổ điển</string>
     <string name="osc_preset_ring_short">Hành động</string>
     <string name="osc_preset_trails_short">Trails</string>
+    <string name="osc_element_aim_fire_off">Aim+Fire: tắt (bấm rồi kéo để xoay camera)</string>
+    <string name="osc_element_aim_fire_on">Aim+Fire: bật</string>
     <string name="osc_menu_terminate">Terminate</string>
     <string name="osc_menu_terminate_confirm">Bấm lần nữa để tắt app trên máy tính</string>
     <string name="osc_edit_done">Xong</string>

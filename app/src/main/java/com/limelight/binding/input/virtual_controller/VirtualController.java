@@ -79,6 +79,8 @@ public class VirtualController {
 
     /** How many on-screen buttons hold each gamepad action down right now. */
     private final int[] actionHoldCounts = new int[GamepadAction.COUNT];
+    /** Right stick output added by sources other than the camera zone, such as Aim+Fire. */
+    private final Map<Object, float[]> cameraContributions = new HashMap<>();
 
     public VirtualController(final ControllerHandler controllerHandler, FrameLayout layout, final Context context, PreferenceConfiguration prefConfig) {
         this.controllerHandler = controllerHandler;
@@ -369,6 +371,18 @@ public class VirtualController {
         sendControllerInputContext();
     }
 
+    /** Set the right stick output one extra source adds; 0, 0 removes it. */
+    void setCameraContribution(Object source, float x, float y) {
+        if (x == 0 && y == 0) {
+            if (cameraContributions.remove(source) == null) {
+                return;
+            }
+        } else {
+            cameraContributions.put(source, new float[]{x, y});
+        }
+        sendControllerInputContext();
+    }
+
     /** The editor's options for one control: what it sends, and whether it is shown. */
     void showElementOptions(final VirtualControllerElement element) {
         if (element instanceof RingButtons) {
@@ -380,6 +394,8 @@ public class VirtualController {
                 (DigitalButton) element : null;
         if (button != null) {
             options.add(context.getString(R.string.osc_element_send, GamepadAction.label(button.getAction())));
+            options.add(context.getString(button.isAimFire() ? R.string.osc_element_aim_fire_on :
+                    R.string.osc_element_aim_fire_off));
         }
         options.add(context.getString(element.isHiddenByUser() ? R.string.osc_element_show : R.string.osc_element_hide));
 
@@ -389,6 +405,8 @@ public class VirtualController {
                     public void onClick(android.content.DialogInterface dialog, int which) {
                         if (button != null && which == 0) {
                             showActionPicker(button);
+                        } else if (button != null && which == 1) {
+                            button.setAimFire(!button.isAimFire());
                         } else {
                             element.setHiddenByUser(!element.isHiddenByUser());
                             updateElementVisibility();
@@ -630,6 +648,7 @@ public class VirtualController {
         frame_layout.invalidate(); // Request a redraw for snap lines
         removeElements();
         java.util.Arrays.fill(actionHoldCounts, 0);
+        cameraContributions.clear();
 
         if (currentMode != ControllerMode.Active) {
             // A rotation or resize rebuilds everything, so leave the editor without saving
@@ -677,6 +696,14 @@ public class VirtualController {
         if (controllerHandler != null) {
             // inputMap is a short: without the mask, Y (0x8000) would also set every flag above it
             int buttonFlags = inputContext.inputMap & 0xFFFF;
+            short rightStickX = inputContext.rightStickX;
+            short rightStickY = inputContext.rightStickY;
+            if (!cameraContributions.isEmpty()) {
+                float[] mixed = StickMix.combine(inputContext.rightStickX / (float) 0x7FFE,
+                        inputContext.rightStickY / (float) 0x7FFE, cameraContributions.values());
+                rightStickX = (short) (mixed[0] * 0x7FFE);
+                rightStickY = (short) (mixed[1] * 0x7FFE);
+            }
             for (int action = 0; action < GamepadAction.COUNT; action++) {
                 if (actionHoldCounts[action] > 0) {
                     buttonFlags |= GamepadAction.flag(action);
@@ -686,8 +713,8 @@ public class VirtualController {
                     buttonFlags,
                     inputContext.leftStickX,
                     inputContext.leftStickY,
-                    inputContext.rightStickX,
-                    inputContext.rightStickY,
+                    rightStickX,
+                    rightStickY,
                     actionHoldCounts[GamepadAction.LT] > 0 ? (byte) 0xFF : inputContext.leftTrigger,
                     actionHoldCounts[GamepadAction.RT] > 0 ? (byte) 0xFF : inputContext.rightTrigger
             );

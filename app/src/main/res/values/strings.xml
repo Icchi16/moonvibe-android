@@ -269,6 +269,8 @@
     <string name="osc_preset_classic_short">Classic</string>
     <string name="osc_preset_ring_short">Action</string>
     <string name="osc_preset_trails_short">Trails</string>
+    <string name="osc_element_aim_fire_off">Aim+Fire: off (drag the button to turn the camera)</string>
+    <string name="osc_element_aim_fire_on">Aim+Fire: on</string>
     <string name="osc_menu_terminate">Terminate</string>
     <string name="osc_menu_terminate_confirm">Tap again to quit the app on the PC</string>
     <string name="osc_edit_done">Done</string>
