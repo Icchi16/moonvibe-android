@@ -12,6 +12,9 @@ import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.view.MotionEvent;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -57,6 +60,11 @@ public class DigitalButton extends VirtualControllerElement {
 
     private int layer;
     private DigitalButton movingButton = null;
+
+    /** Gamepad button sent by this button, and the one it sends in the default layout. */
+    private int defaultAction = -1;
+    private int action = -1;
+    private boolean actionDown = false;
 
     boolean inRange(float x, float y) {
         return (this.getX() < x && this.getX() + this.getWidth() > x) &&
@@ -124,6 +132,51 @@ public class DigitalButton extends VirtualControllerElement {
         listeners.add(listener);
     }
 
+    void setDefaultAction(int action) {
+        this.defaultAction = action;
+        this.action = action;
+        invalidate();
+    }
+
+    int getAction() {
+        return action;
+    }
+
+    boolean canChangeAction() {
+        return GamepadAction.isValid(defaultAction);
+    }
+
+    void setAction(int action) {
+        if (!GamepadAction.isValid(action) || !canChangeAction()) {
+            return;
+        }
+        if (actionDown) {
+            virtualController.setActionPressed(this.action, false);
+            actionDown = false;
+        }
+        this.action = action;
+        invalidate();
+    }
+
+    @Override
+    public JSONObject getConfiguration() throws JSONException {
+        JSONObject configuration = super.getConfiguration();
+        if (canChangeAction() && action != defaultAction) {
+            configuration.put("ACTION", action);
+        }
+        return configuration;
+    }
+
+    @Override
+    public void loadConfiguration(JSONObject configuration) throws JSONException {
+        super.loadConfiguration(configuration);
+        if (canChangeAction()) {
+            int savedAction = configuration.optInt("ACTION", defaultAction);
+            action = GamepadAction.isValid(savedAction) ? savedAction : defaultAction;
+            invalidate();
+        }
+    }
+
     public void setText(String text) {
         this.text = text;
         invalidate();
@@ -159,12 +212,18 @@ public class DigitalButton extends VirtualControllerElement {
         } else {
             paint.setStyle(Paint.Style.FILL_AND_STROKE);
             paint.setStrokeWidth(getDefaultStrokeWidth()/2);
-            canvas.drawText(text, getPercent(getWidth(), 50), getPercent(getHeight(), 63), paint);
+            // A remapped button shows the button it sends
+            String label = action != defaultAction ? GamepadAction.label(action) : text;
+            canvas.drawText(label, getPercent(getWidth(), 50), getPercent(getHeight(), 63), paint);
         }
     }
 
     private void onClickCallback() {
         _DBG("clicked");
+        if (GamepadAction.isValid(action) && !actionDown) {
+            actionDown = true;
+            virtualController.setActionPressed(action, true);
+        }
         // notify listeners
         for (DigitalButtonListener listener : listeners) {
             listener.onClick();
@@ -184,6 +243,10 @@ public class DigitalButton extends VirtualControllerElement {
 
     private void onReleaseCallback() {
         _DBG("released");
+        if (actionDown) {
+            actionDown = false;
+            virtualController.setActionPressed(action, false);
+        }
         // notify listeners
         for (DigitalButtonListener listener : listeners) {
             listener.onRelease();

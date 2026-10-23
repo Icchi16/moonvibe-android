@@ -327,14 +327,19 @@ public class StreamSettings extends Activity {
                     .setNeutralButton(R.string.osc_menu_profile_new, new android.content.DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(android.content.DialogInterface dialog, int which) {
-                            OscProfileDialogs.showNameDialog(activity, R.string.osc_profile_new_title,
-                                    profiles.suggestNewName(), new OscProfileDialogs.NameCallback() {
-                                @Override
-                                public void onName(String name) {
-                                    profiles.createFromActive(name);
-                                    setUpProfilePreference();
-                                }
-                            });
+                            OscProfileDialogs.showCreateDialog(activity, profiles,
+                                    new OscProfileDialogs.ChangeCallback() {
+                                        @Override
+                                        public void onChanged() {
+                                            setUpProfilePreference();
+                                        }
+                                    },
+                                    new OscProfileDialogs.ChangeCallback() {
+                                        @Override
+                                        public void onChanged() {
+                                            activity.recreate();
+                                        }
+                                    });
                         }
                     })
                     .setNegativeButton(android.R.string.cancel, null)

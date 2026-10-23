@@ -39,6 +39,7 @@ public abstract class VirtualControllerElement extends View {
     public static final int EID_LSB = 14;
     public static final int EID_RSB = 15;
     public static final int EID_GDB = 16;
+    public static final int EID_RING = 17;
 
     protected VirtualController virtualController;
     protected final int elementId;
@@ -71,6 +72,23 @@ public abstract class VirtualControllerElement extends View {
     private static final float RESIZE_HANDLE_DP = 22.0f;
     /** Holding a grouped button this long before dragging moves it alone. */
     private static final int MOVE_ALONE_HOLD_MS = 500;
+
+    /** Hidden while playing; shown faded in the layout editor so it can be shown again. */
+    private boolean hiddenByUser = false;
+    /** The finger stayed on this element long enough to open its options when lifted. */
+    private boolean holdReached = false;
+
+    private final Runnable holdRunnable = new Runnable() {
+        @Override
+        public void run() {
+            holdReached = true;
+            if (moveGroup.size() > 1) {
+                moveAloneRunnable.run();
+            } else {
+                performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+            }
+        }
+    };
 
     /** Elements being dragged along with this one in the layout editor. */
     private java.util.List<VirtualControllerElement> moveGroup = new java.util.ArrayList<>();
@@ -525,6 +543,7 @@ public abstract class VirtualControllerElement extends View {
                 startSize_x = getWidth();
                 startSize_y = getHeight();
                 dragStarted = false;
+                holdReached = false;
 
                 if (virtualController.getControllerMode() == VirtualController.ControllerMode.MoveButtons &&
                         isOnResizeHandle(event.getX(), event.getY())) {
@@ -536,9 +555,8 @@ public abstract class VirtualControllerElement extends View {
                     for (VirtualControllerElement element : moveGroup) {
                         element.actionEnableMove();
                     }
-                    if (moveGroup.size() > 1) {
-                        postDelayed(moveAloneRunnable, MOVE_ALONE_HOLD_MS);
-                    }
+                    // Holding still moves a grouped button alone, or opens the options on lift
+                    postDelayed(holdRunnable, MOVE_ALONE_HOLD_MS);
                 }
                 else if (virtualController.getControllerMode() == VirtualController.ControllerMode.ResizeButtons)
                     actionEnableResize();
@@ -555,7 +573,7 @@ public abstract class VirtualControllerElement extends View {
                                 break;
                             }
                             dragStarted = true;
-                            removeCallbacks(moveAloneRunnable);
+                            removeCallbacks(holdRunnable);
                         }
                         moveElement(
                                 (int) position_pressed_x,
@@ -580,7 +598,10 @@ public abstract class VirtualControllerElement extends View {
             }
             case MotionEvent.ACTION_CANCEL:
             case MotionEvent.ACTION_UP: {
-                removeCallbacks(moveAloneRunnable);
+                removeCallbacks(holdRunnable);
+                boolean openOptions = holdReached && !dragStarted &&
+                        event.getActionMasked() == MotionEvent.ACTION_UP;
+                holdReached = false;
                 for (VirtualControllerElement element : moveGroup) {
                     if (element != this) {
                         element.actionCancel();
@@ -588,6 +609,9 @@ public abstract class VirtualControllerElement extends View {
                 }
                 moveGroup = new java.util.ArrayList<>();
                 actionCancel();
+                if (openOptions) {
+                    virtualController.showElementOptions(this);
+                }
                 return true;
             }
             default: {
@@ -622,6 +646,14 @@ public abstract class VirtualControllerElement extends View {
         invalidate();
     }
 
+    boolean isHiddenByUser() {
+        return hiddenByUser;
+    }
+
+    void setHiddenByUser(boolean hidden) {
+        hiddenByUser = hidden;
+    }
+
     protected final float getPercent(float value, float percent) {
         return value / 100 * percent;
     }
@@ -640,6 +672,9 @@ public abstract class VirtualControllerElement extends View {
         configuration.put("TOP", layoutParams.topMargin);
         configuration.put("WIDTH", layoutParams.width);
         configuration.put("HEIGHT", layoutParams.height);
+        if (hiddenByUser) {
+            configuration.put("HIDDEN", true);
+        }
 
         return configuration;
     }
@@ -647,10 +682,12 @@ public abstract class VirtualControllerElement extends View {
     public void loadConfiguration(JSONObject configuration) throws JSONException {
         FrameLayout.LayoutParams layoutParams = (FrameLayout.LayoutParams) getLayoutParams();
 
-        layoutParams.leftMargin = configuration.getInt("LEFT");
-        layoutParams.topMargin = configuration.getInt("TOP");
-        layoutParams.width = configuration.getInt("WIDTH");
-        layoutParams.height = configuration.getInt("HEIGHT");
+        // A preset may leave out the position to keep the default one
+        layoutParams.leftMargin = configuration.optInt("LEFT", layoutParams.leftMargin);
+        layoutParams.topMargin = configuration.optInt("TOP", layoutParams.topMargin);
+        layoutParams.width = configuration.optInt("WIDTH", layoutParams.width);
+        layoutParams.height = configuration.optInt("HEIGHT", layoutParams.height);
+        hiddenByUser = configuration.optBoolean("HIDDEN", false);
 
         requestLayout();
     }

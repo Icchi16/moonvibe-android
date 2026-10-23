@@ -162,6 +162,14 @@
                 android:defaultValue="true" />
         </PreferenceCategory>
         <PreferenceCategory android:title="@string/category_osc_layout">
+            <ListPreference
+                android:key="list_osc_button_style"
+                android:dependency="checkbox_show_onscreen_controls"
+                android:title="@string/title_osc_button_style"
+                android:summary="%s"
+                android:entries="@array/osc_button_style_names"
+                android:entryValues="@array/osc_button_style_values"
+                android:defaultValue="classic" />
             <CheckBoxPreference
                 android:key="checkbox_osc_floating_joystick"
                 android:dependency="checkbox_show_onscreen_controls"

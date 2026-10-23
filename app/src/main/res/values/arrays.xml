@@ -145,6 +145,14 @@
         <item>strong</item>
     </string-array>
 
+    <string-array name="osc_button_style_names">
+        <item>@string/osc_button_style_classic</item>
+        <item>@string/osc_button_style_ring</item>
+    </string-array>
+    <string-array name="osc_button_style_values" translatable="false">
+        <item>classic</item>
+        <item>ring</item>
+    </string-array>
     <string-array name="osc_right_stick_mode_names">
         <item>@string/osc_right_stick_mode_position</item>
         <item>@string/osc_right_stick_mode_camera</item>

@@ -52,6 +52,7 @@ public class OscProfiles {
             PreferenceConfiguration.OSC_RIGHT_STICK_EDGE_HOLD_PREF_STRING,
             PreferenceConfiguration.OSC_RIGHT_STICK_SLOW_BOOST_PREF_STRING,
             PreferenceConfiguration.OSC_STICK_ANTI_DEADZONE_PREF_STRING,
+            PreferenceConfiguration.OSC_BUTTON_STYLE_PREF_STRING,
     };
 
     public static class Profile {

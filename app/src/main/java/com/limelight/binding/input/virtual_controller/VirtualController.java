@@ -77,6 +77,9 @@ public class VirtualController {
 
     private final List<VirtualControllerElement> elements = new ArrayList<>();
 
+    /** How many on-screen buttons hold each gamepad action down right now. */
+    private final int[] actionHoldCounts = new int[GamepadAction.COUNT];
+
     public VirtualController(final ControllerHandler controllerHandler, FrameLayout layout, final Context context, PreferenceConfiguration prefConfig) {
         this.controllerHandler = controllerHandler;
         this.frame_layout = layout;
@@ -343,12 +346,144 @@ public class VirtualController {
         menu.show();
     }
 
-    private void updateElementVisibility() {
+    void updateElementVisibility() {
+        boolean editing = currentMode != ControllerMode.Active;
         for (VirtualControllerElement element : elements) {
-            // The editor shows every control even in mouse mode
-            element.setVisibility(isJoystickMode || currentMode != ControllerMode.Active ?
-                    View.VISIBLE : View.INVISIBLE);
+            // The editor shows every control even in mouse mode, and faded when the user hid it
+            boolean visible = editing || (isJoystickMode && !element.isHiddenByUser());
+            element.setVisibility(visible ? View.VISIBLE : View.INVISIBLE);
+            element.setAlpha(editing && element.isHiddenByUser() ? 0.35f : 1.0f);
         }
+    }
+
+    /** Press or release a gamepad button for one on-screen button. */
+    void setActionPressed(int action, boolean pressed) {
+        if (!GamepadAction.isValid(action)) {
+            return;
+        }
+        if (pressed) {
+            actionHoldCounts[action]++;
+        } else if (actionHoldCounts[action] > 0) {
+            actionHoldCounts[action]--;
+        }
+        sendControllerInputContext();
+    }
+
+    /** The editor's options for one control: what it sends, and whether it is shown. */
+    void showElementOptions(final VirtualControllerElement element) {
+        if (element instanceof RingButtons) {
+            showRingOptions((RingButtons) element);
+            return;
+        }
+        final List<String> options = new ArrayList<>();
+        final DigitalButton button = element instanceof DigitalButton && ((DigitalButton) element).canChangeAction() ?
+                (DigitalButton) element : null;
+        if (button != null) {
+            options.add(context.getString(R.string.osc_element_send, GamepadAction.label(button.getAction())));
+        }
+        options.add(context.getString(element.isHiddenByUser() ? R.string.osc_element_show : R.string.osc_element_hide));
+
+        new android.app.AlertDialog.Builder(context)
+                .setItems(options.toArray(new String[0]), new android.content.DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(android.content.DialogInterface dialog, int which) {
+                        if (button != null && which == 0) {
+                            showActionPicker(button);
+                        } else {
+                            element.setHiddenByUser(!element.isHiddenByUser());
+                            updateElementVisibility();
+                        }
+                    }
+                })
+                .show();
+    }
+
+    private void showRingOptions(final RingButtons ring) {
+        final int count = ring.getSmallCount();
+        final String[] options = new String[count + 3];
+        options[0] = context.getString(R.string.osc_ring_count, count);
+        options[1] = context.getString(R.string.osc_ring_primary, GamepadAction.label(ring.getPrimaryAction()));
+        for (int i = 0; i < count; i++) {
+            options[i + 2] = context.getString(R.string.osc_ring_small, i + 1, GamepadAction.label(ring.getSmallAction(i)));
+        }
+        options[count + 2] = context.getString(ring.isHiddenByUser() ? R.string.osc_element_show : R.string.osc_element_hide);
+
+        new android.app.AlertDialog.Builder(context)
+                .setItems(options, new android.content.DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(android.content.DialogInterface dialog, int which) {
+                        if (which == 0) {
+                            showRingCountPicker(ring);
+                        } else if (which == 1) {
+                            showActionPicker(ring.getPrimaryAction(), new ActionPicked() {
+                                @Override
+                                public void onPicked(int action) {
+                                    ring.setPrimaryAction(action);
+                                }
+                            });
+                        } else if (which < count + 2) {
+                            final int index = which - 2;
+                            showActionPicker(ring.getSmallAction(index), new ActionPicked() {
+                                @Override
+                                public void onPicked(int action) {
+                                    ring.setSmallAction(index, action);
+                                }
+                            });
+                        } else {
+                            ring.setHiddenByUser(!ring.isHiddenByUser());
+                            updateElementVisibility();
+                        }
+                    }
+                })
+                .show();
+    }
+
+    private void showRingCountPicker(final RingButtons ring) {
+        final int choices = RingButtons.MAX_SMALL - RingButtons.MIN_SMALL + 1;
+        String[] labels = new String[choices];
+        for (int i = 0; i < choices; i++) {
+            labels[i] = String.valueOf(RingButtons.MIN_SMALL + i);
+        }
+        new android.app.AlertDialog.Builder(context)
+                .setTitle(R.string.osc_ring_count_title)
+                .setSingleChoiceItems(labels, ring.getSmallCount() - RingButtons.MIN_SMALL,
+                        new android.content.DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(android.content.DialogInterface dialog, int which) {
+                        ring.setSmallCount(RingButtons.MIN_SMALL + which);
+                        dialog.dismiss();
+                    }
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private interface ActionPicked {
+        void onPicked(int action);
+    }
+
+    private void showActionPicker(final DigitalButton button) {
+        showActionPicker(button.getAction(), new ActionPicked() {
+            @Override
+            public void onPicked(int action) {
+                button.setAction(action);
+            }
+        });
+    }
+
+    private void showActionPicker(int current, final ActionPicked callback) {
+        new android.app.AlertDialog.Builder(context)
+                .setTitle(R.string.osc_element_send_title)
+                .setSingleChoiceItems(GamepadAction.pickerLabels(), current,
+                        new android.content.DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(android.content.DialogInterface dialog, int which) {
+                        callback.onPicked(which);
+                        dialog.dismiss();
+                    }
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
     }
 
     public void removeElements() {
@@ -469,7 +604,7 @@ public class VirtualController {
         }
 
         for (VirtualControllerElement element : elements) {
-            if (element instanceof AnalogStick || isFaceButton(element) ||
+            if (element instanceof AnalogStick || element instanceof RingButtons || isFaceButton(element) ||
                     element.getVisibility() != View.VISIBLE) {
                 continue;
             }
@@ -494,6 +629,7 @@ public class VirtualController {
     public void refreshLayout() {
         frame_layout.invalidate(); // Request a redraw for snap lines
         removeElements();
+        java.util.Arrays.fill(actionHoldCounts, 0);
 
         if (currentMode != ControllerMode.Active) {
             // A rotation or resize rebuilds everything, so leave the editor without saving
@@ -539,14 +675,21 @@ public class VirtualController {
         _DBG("RIGHT STICK X: " + inputContext.rightStickX + " Y: " + inputContext.rightStickY);
 
         if (controllerHandler != null) {
+            // inputMap is a short: without the mask, Y (0x8000) would also set every flag above it
+            int buttonFlags = inputContext.inputMap & 0xFFFF;
+            for (int action = 0; action < GamepadAction.COUNT; action++) {
+                if (actionHoldCounts[action] > 0) {
+                    buttonFlags |= GamepadAction.flag(action);
+                }
+            }
             controllerHandler.reportOscState(
-                    inputContext.inputMap,
+                    buttonFlags,
                     inputContext.leftStickX,
                     inputContext.leftStickY,
                     inputContext.rightStickX,
                     inputContext.rightStickY,
-                    inputContext.leftTrigger,
-                    inputContext.rightTrigger
+                    actionHoldCounts[GamepadAction.LT] > 0 ? (byte) 0xFF : inputContext.leftTrigger,
+                    actionHoldCounts[GamepadAction.RT] > 0 ? (byte) 0xFF : inputContext.rightTrigger
             );
         }
     }

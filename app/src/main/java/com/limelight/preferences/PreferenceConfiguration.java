@@ -85,6 +85,9 @@ public class PreferenceConfiguration {
     public static final String OSC_EDIT_STICK_ZONES_PREF_STRING = "checkbox_osc_edit_stick_zones";
     public static final String OSC_TOUCH_ASSIST_PREF_STRING = "checkbox_osc_touch_assist";
     public static final String OSC_BUTTON_HAPTICS_PREF_STRING = "list_osc_button_haptics";
+    public static final String OSC_BUTTON_STYLE_PREF_STRING = "list_osc_button_style";
+    public static final String OSC_BUTTON_STYLE_CLASSIC = "classic";
+    public static final String OSC_BUTTON_STYLE_RING = "ring";
     private static final String OSC_KEYBOARD_SHORTCUTS_PREF_STRING = "checkbox_osc_keyboard_shortcuts";
 
     static final String DEFAULT_RESOLUTION = "1280x720";
@@ -201,6 +204,8 @@ public class PreferenceConfiguration {
     public boolean oscTouchAssist;
     public String oscButtonHaptics;
     public boolean oscKeyboardShortcuts;
+    /** A/B/X/Y as the classic diamond, or a primary button with a ring of smaller ones. */
+    public boolean oscRingButtons;
 
     public static boolean isNativeResolution(int width, int height) {
         // It's not a native resolution if it matches an existing resolution option
@@ -463,6 +468,7 @@ public class PreferenceConfiguration {
         oscRightStickEdgeHold = other.oscRightStickEdgeHold;
         oscRightStickSlowBoost = other.oscRightStickSlowBoost;
         oscStickAntiDeadzone = other.oscStickAntiDeadzone;
+        oscRingButtons = other.oscRingButtons;
     }
 
     private static AnalogStickForScrolling getAnalogStickForScrollingValue(Context context) {
@@ -693,6 +699,8 @@ public class PreferenceConfiguration {
         config.oscTouchAssist = prefs.getBoolean(OSC_TOUCH_ASSIST_PREF_STRING, DEFAULT_OSC_TOUCH_ASSIST);
         config.oscButtonHaptics = prefs.getString(OSC_BUTTON_HAPTICS_PREF_STRING, DEFAULT_OSC_BUTTON_HAPTICS);
         config.oscKeyboardShortcuts = prefs.getBoolean(OSC_KEYBOARD_SHORTCUTS_PREF_STRING, DEFAULT_OSC_KEYBOARD_SHORTCUTS);
+        config.oscRingButtons = OSC_BUTTON_STYLE_RING.equals(
+                prefs.getString(OSC_BUTTON_STYLE_PREF_STRING, OSC_BUTTON_STYLE_CLASSIC));
 
         return config;
     }

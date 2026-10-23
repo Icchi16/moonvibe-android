@@ -10,6 +10,7 @@ import android.widget.FrameLayout;
 import android.widget.Toast;
 
 import com.limelight.R;
+import com.limelight.binding.input.virtual_controller.OscPresets;
 
 /** Dialogs for managing on-screen control profiles, shared by the stream menu and the settings. */
 public class OscProfileDialogs {
@@ -56,6 +57,39 @@ public class OscProfileDialogs {
         }
         dialog.show();
         input.requestFocus();
+    }
+
+    /**
+     * Create a profile, starting from the one in use or from a preset layout. The new profile
+     * becomes the one in use.
+     */
+    public static void showCreateDialog(final Context context, final OscProfiles profiles,
+                                        final ChangeCallback onListChanged,
+                                        final ChangeCallback onActiveChanged) {
+        final String[] presets = OscPresets.ids();
+        new AlertDialog.Builder(context)
+                .setTitle(R.string.osc_preset_title)
+                .setItems(OscPresets.names(context), new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        final String preset = presets[which];
+                        String suggestion = OscPresets.suggestedProfileName(context, preset);
+                        showNameDialog(context, R.string.osc_profile_new_title,
+                                suggestion != null ? suggestion : profiles.suggestNewName(), new NameCallback() {
+                            @Override
+                            public void onName(String name) {
+                                profiles.createFromActive(name);
+                                if (OscPresets.apply(context, preset)) {
+                                    onActiveChanged.onChanged();
+                                } else {
+                                    // A plain copy of the profile in use changes nothing on screen
+                                    onListChanged.onChanged();
+                                }
+                            }
+                        });
+                    }
+                })
+                .show();
     }
 
     /** Rename, duplicate or delete one profile. */

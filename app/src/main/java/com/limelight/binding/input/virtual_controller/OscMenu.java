@@ -528,15 +528,19 @@ class OscMenu {
         newProfile.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                OscProfileDialogs.showNameDialog(context, R.string.osc_profile_new_title,
-                        profiles.suggestNewName(), new OscProfileDialogs.NameCallback() {
-                    @Override
-                    public void onName(String name) {
-                        // The new profile starts as a copy of this one, so nothing on screen changes
-                        profiles.createFromActive(name);
-                        refreshPanel();
-                    }
-                });
+                OscProfileDialogs.showCreateDialog(context, profiles,
+                        new OscProfileDialogs.ChangeCallback() {
+                            @Override
+                            public void onChanged() {
+                                refreshPanel();
+                            }
+                        },
+                        new OscProfileDialogs.ChangeCallback() {
+                            @Override
+                            public void onChanged() {
+                                onActiveProfileChanged(profiles);
+                            }
+                        });
             }
         });
         profileList.addView(newProfile);
