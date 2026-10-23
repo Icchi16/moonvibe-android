@@ -244,23 +244,12 @@ public class VirtualController {
         return (float) Math.sqrt(dx * dx + dy * dy);
     }
 
-    /** Whether (x, y) lies inside the convex polygon whose corners are listed in order. */
-    private static boolean isInsideConvexPolygon(float[] xs, float[] ys, int count, float x, float y) {
-        boolean hasPositive = false, hasNegative = false;
-        for (int i = 0; i < count; i++) {
-            int j = (i + 1) % count;
-            float cross = (xs[j] - xs[i]) * (y - ys[i]) - (ys[j] - ys[i]) * (x - xs[i]);
-            if (cross > 0) hasPositive = true;
-            if (cross < 0) hasNegative = true;
-        }
-        return !(hasPositive && hasNegative);
-    }
-
     /**
      * Finds the button a touch at (x, y) in layout coordinates was most likely aimed at, for a
      * touch that missed every button and would otherwise reach a joystick zone behind them.
-     * The gaps between the A/B/X/Y buttons belong to the nearest face button. Outside that,
-     * every button reaches the same short distance past its drawn edge in all directions.
+     * The A/B/X/Y block is a diamond split into four smaller diamonds, one per face button, each
+     * centered on its button and just large enough to hold the button's square. Other buttons
+     * reach a little past their edges.
      */
     VirtualControllerElement findTouchAssistTarget(float x, float y) {
         if (prefConfig == null || !prefConfig.oscTouchAssist) {
@@ -286,47 +275,20 @@ public class VirtualController {
             centroidX /= faceButtons.size();
             centroidY /= faceButtons.size();
 
-            // Order the button centers around the block to form the area between them
-            final float cx = centroidX, cy = centroidY;
-            List<VirtualControllerElement> ordered = new ArrayList<>(faceButtons);
-            java.util.Collections.sort(ordered, new java.util.Comparator<VirtualControllerElement>() {
-                @Override
-                public int compare(VirtualControllerElement a, VirtualControllerElement b) {
-                    double angleA = Math.atan2(a.getY() + a.getHeight() / 2f - cy, a.getX() + a.getWidth() / 2f - cx);
-                    double angleB = Math.atan2(b.getY() + b.getHeight() / 2f - cy, b.getX() + b.getWidth() / 2f - cx);
-                    return Double.compare(angleA, angleB);
+            for (VirtualControllerElement element : faceButtons) {
+                float buttonX = element.getX() + element.getWidth() / 2f;
+                float buttonY = element.getY() + element.getHeight() / 2f;
+                // Diamond around the button reaching halfway to the block's center on each side
+                float halfDiagonal = Math.abs(buttonX - centroidX) + Math.abs(buttonY - centroidY);
+                float diamondDistance = Math.abs(x - buttonX) + Math.abs(y - buttonY);
+                if (diamondDistance <= halfDiagonal && diamondDistance < bestDistance) {
+                    best = element;
+                    bestDistance = diamondDistance;
                 }
-            });
-            float[] xs = new float[ordered.size()];
-            float[] ys = new float[ordered.size()];
-            for (int i = 0; i < ordered.size(); i++) {
-                xs[i] = ordered.get(i).getX() + ordered.get(i).getWidth() / 2f;
-                ys[i] = ordered.get(i).getY() + ordered.get(i).getHeight() / 2f;
             }
-
-            if (isInsideConvexPolygon(xs, ys, ordered.size(), x, y)) {
-                for (VirtualControllerElement element : faceButtons) {
-                    float distance = distanceToCenter(element, x, y);
-                    if (distance < bestDistance) {
-                        best = element;
-                        bestDistance = distance;
-                    }
-                }
+            if (best != null) {
                 return best;
             }
-        }
-
-        // Face buttons are drawn as circles, so give them a circular reach
-        for (VirtualControllerElement element : faceButtons) {
-            float reach = Math.min(element.getWidth(), element.getHeight()) / 2f + slop;
-            float distance = distanceToCenter(element, x, y);
-            if (distance <= reach && distance < bestDistance) {
-                best = element;
-                bestDistance = distance;
-            }
-        }
-        if (best != null) {
-            return best;
         }
 
         for (VirtualControllerElement element : elements) {
