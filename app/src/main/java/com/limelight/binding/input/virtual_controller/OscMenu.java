@@ -20,6 +20,7 @@ import android.widget.Toast;
 import com.limelight.R;
 import com.limelight.preferences.OscProfileDialogs;
 import com.limelight.preferences.OscProfiles;
+import com.limelight.preferences.PreferenceConfiguration;
 
 import java.util.List;
 
@@ -45,6 +46,9 @@ class OscMenu {
         void disconnect();
         /** End the stream and quit the app running on the host. */
         void terminate();
+        boolean hasGyro();
+        String getGyroMode();
+        void setGyroMode(String mode);
         OscProfiles getProfiles();
         /** Load the settings and layout of the profile that was just made active. */
         void reloadProfile();
@@ -103,9 +107,16 @@ class OscMenu {
     private TextView opacityLabel;
     private SeekBar opacitySeekBar;
     private final TextView[] hapticsChips = new TextView[4];
+    private final TextView[] gyroChips = new TextView[3];
+    private View gyroSection;
     /** Disconnect or Terminate after its first tap, waiting for the confirming one. */
     private TextView armedItem;
     private int armedItemTextRes;
+
+    private static final String[] GYRO_MODES = {
+            PreferenceConfiguration.OSC_GYRO_MODE_OFF, PreferenceConfiguration.OSC_GYRO_MODE_ALWAYS,
+            PreferenceConfiguration.OSC_GYRO_MODE_AIMING
+    };
 
     private static final String[] HAPTICS_LEVELS = {
             TouchHaptics.LEVEL_OFF, TouchHaptics.LEVEL_LIGHT, TouchHaptics.LEVEL_MEDIUM, TouchHaptics.LEVEL_STRONG
@@ -308,6 +319,12 @@ class OscMenu {
         opacitySeekBar.setProgress(opacity);
         opacityLabel.setText(context.getString(R.string.osc_menu_opacity, opacity));
 
+        gyroSection.setVisibility(actions.hasGyro() ? View.VISIBLE : View.GONE);
+        String gyroMode = actions.getGyroMode();
+        for (int i = 0; i < GYRO_MODES.length; i++) {
+            setChipSelected(gyroChips[i], GYRO_MODES[i].equals(gyroMode));
+        }
+
         String haptics = actions.getHapticsLevel();
         for (int i = 0; i < HAPTICS_LEVELS.length; i++) {
             setChipSelected(hapticsChips[i], HAPTICS_LEVELS[i].equals(haptics));
@@ -412,6 +429,29 @@ class OscMenu {
             }
         });
         content.addView(opacitySeekBar, seekBarParams());
+
+        LinearLayout gyroBlock = new LinearLayout(context);
+        gyroBlock.setOrientation(LinearLayout.VERTICAL);
+        TextView gyroLabel = label();
+        gyroLabel.setText(R.string.title_osc_gyro_mode);
+        gyroBlock.addView(gyroLabel);
+        LinearLayout gyroRow = chipRow();
+        int[] gyroNames = {R.string.osc_gyro_chip_off, R.string.osc_gyro_chip_always, R.string.osc_gyro_chip_aiming};
+        for (int i = 0; i < gyroChips.length; i++) {
+            final String mode = GYRO_MODES[i];
+            gyroChips[i] = chip(gyroNames[i]);
+            gyroChips[i].setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    actions.setGyroMode(mode);
+                    refreshPanel();
+                }
+            });
+            addChip(gyroRow, gyroChips[i]);
+        }
+        gyroBlock.addView(gyroRow);
+        gyroSection = gyroBlock;
+        content.addView(gyroBlock);
 
         TextView hapticsLabel = label();
         hapticsLabel.setText(R.string.title_osc_button_haptics);

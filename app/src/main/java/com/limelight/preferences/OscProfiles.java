@@ -53,6 +53,10 @@ public class OscProfiles {
             PreferenceConfiguration.OSC_RIGHT_STICK_SLOW_BOOST_PREF_STRING,
             PreferenceConfiguration.OSC_STICK_ANTI_DEADZONE_PREF_STRING,
             PreferenceConfiguration.OSC_BUTTON_STYLE_PREF_STRING,
+            PreferenceConfiguration.OSC_GYRO_MODE_PREF_STRING,
+            PreferenceConfiguration.OSC_GYRO_SENSITIVITY_PREF_STRING,
+            PreferenceConfiguration.OSC_GYRO_INVERT_Y_PREF_STRING,
+            PreferenceConfiguration.OSC_GYRO_ROLL_PREF_STRING,
     };
 
     public static class Profile {

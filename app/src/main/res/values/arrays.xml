@@ -145,6 +145,16 @@
         <item>strong</item>
     </string-array>
 
+    <string-array name="osc_gyro_mode_names">
+        <item>@string/osc_gyro_mode_off</item>
+        <item>@string/osc_gyro_mode_always</item>
+        <item>@string/osc_gyro_mode_aiming</item>
+    </string-array>
+    <string-array name="osc_gyro_mode_values" translatable="false">
+        <item>off</item>
+        <item>always</item>
+        <item>aiming</item>
+    </string-array>
     <string-array name="osc_button_style_names">
         <item>@string/osc_button_style_classic</item>
         <item>@string/osc_button_style_ring</item>

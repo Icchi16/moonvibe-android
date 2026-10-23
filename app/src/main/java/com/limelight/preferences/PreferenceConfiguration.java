@@ -88,6 +88,13 @@ public class PreferenceConfiguration {
     public static final String OSC_BUTTON_STYLE_PREF_STRING = "list_osc_button_style";
     public static final String OSC_BUTTON_STYLE_CLASSIC = "classic";
     public static final String OSC_BUTTON_STYLE_RING = "ring";
+    public static final String OSC_GYRO_MODE_PREF_STRING = "list_osc_gyro_mode";
+    public static final String OSC_GYRO_MODE_OFF = "off";
+    public static final String OSC_GYRO_MODE_ALWAYS = "always";
+    public static final String OSC_GYRO_MODE_AIMING = "aiming";
+    public static final String OSC_GYRO_SENSITIVITY_PREF_STRING = "seekbar_osc_gyro_sensitivity";
+    public static final String OSC_GYRO_INVERT_Y_PREF_STRING = "checkbox_osc_gyro_invert_y";
+    public static final String OSC_GYRO_ROLL_PREF_STRING = "checkbox_osc_gyro_roll";
     private static final String OSC_KEYBOARD_SHORTCUTS_PREF_STRING = "checkbox_osc_keyboard_shortcuts";
 
     static final String DEFAULT_RESOLUTION = "1280x720";
@@ -206,6 +213,11 @@ public class PreferenceConfiguration {
     public boolean oscKeyboardShortcuts;
     /** A/B/X/Y as the classic diamond, or a primary button with a ring of smaller ones. */
     public boolean oscRingButtons;
+    /** Gyro aiming: off, always, or only while a finger is aiming. */
+    public String oscGyroMode;
+    public int oscGyroSensitivity;
+    public boolean oscGyroInvertY;
+    public boolean oscGyroRoll;
 
     public static boolean isNativeResolution(int width, int height) {
         // It's not a native resolution if it matches an existing resolution option
@@ -469,6 +481,10 @@ public class PreferenceConfiguration {
         oscRightStickSlowBoost = other.oscRightStickSlowBoost;
         oscStickAntiDeadzone = other.oscStickAntiDeadzone;
         oscRingButtons = other.oscRingButtons;
+        oscGyroMode = other.oscGyroMode;
+        oscGyroSensitivity = other.oscGyroSensitivity;
+        oscGyroInvertY = other.oscGyroInvertY;
+        oscGyroRoll = other.oscGyroRoll;
     }
 
     private static AnalogStickForScrolling getAnalogStickForScrollingValue(Context context) {
@@ -699,6 +715,10 @@ public class PreferenceConfiguration {
         config.oscTouchAssist = prefs.getBoolean(OSC_TOUCH_ASSIST_PREF_STRING, DEFAULT_OSC_TOUCH_ASSIST);
         config.oscButtonHaptics = prefs.getString(OSC_BUTTON_HAPTICS_PREF_STRING, DEFAULT_OSC_BUTTON_HAPTICS);
         config.oscKeyboardShortcuts = prefs.getBoolean(OSC_KEYBOARD_SHORTCUTS_PREF_STRING, DEFAULT_OSC_KEYBOARD_SHORTCUTS);
+        config.oscGyroMode = prefs.getString(OSC_GYRO_MODE_PREF_STRING, OSC_GYRO_MODE_OFF);
+        config.oscGyroSensitivity = prefs.getInt(OSC_GYRO_SENSITIVITY_PREF_STRING, 100);
+        config.oscGyroInvertY = prefs.getBoolean(OSC_GYRO_INVERT_Y_PREF_STRING, false);
+        config.oscGyroRoll = prefs.getBoolean(OSC_GYRO_ROLL_PREF_STRING, false);
         config.oscRingButtons = OSC_BUTTON_STYLE_RING.equals(
                 prefs.getString(OSC_BUTTON_STYLE_PREF_STRING, OSC_BUTTON_STYLE_CLASSIC));
 

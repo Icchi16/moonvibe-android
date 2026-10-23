@@ -275,6 +275,39 @@
                 android:summary="@string/summary_osc_right_stick_edge_hold"
                 android:defaultValue="false" />
         </PreferenceCategory>
+        <PreferenceCategory android:title="@string/category_osc_gyro"
+            android:key="category_osc_gyro">
+            <ListPreference
+                android:key="list_osc_gyro_mode"
+                android:dependency="checkbox_show_onscreen_controls"
+                android:title="@string/title_osc_gyro_mode"
+                android:summary="%s"
+                android:entries="@array/osc_gyro_mode_names"
+                android:entryValues="@array/osc_gyro_mode_values"
+                android:defaultValue="off" />
+            <com.limelight.preferences.SeekBarPreference
+                android:key="seekbar_osc_gyro_sensitivity"
+                android:dependency="checkbox_show_onscreen_controls"
+                android:defaultValue="100"
+                android:max="400"
+                seekbar:min="25"
+                seekbar:step="5"
+                android:dialogMessage="@string/summary_osc_gyro_sensitivity"
+                android:text="@string/suffix_osc_opacity"
+                android:title="@string/title_osc_gyro_sensitivity"
+                android:summary="@string/summary_osc_gyro_sensitivity" />
+            <CheckBoxPreference
+                android:key="checkbox_osc_gyro_invert_y"
+                android:dependency="checkbox_show_onscreen_controls"
+                android:title="@string/title_osc_gyro_invert_y"
+                android:defaultValue="false" />
+            <CheckBoxPreference
+                android:key="checkbox_osc_gyro_roll"
+                android:dependency="checkbox_show_onscreen_controls"
+                android:title="@string/title_osc_gyro_roll"
+                android:summary="@string/summary_osc_gyro_roll"
+                android:defaultValue="false" />
+        </PreferenceCategory>
     </PreferenceScreen>
     <PreferenceScreen
         android:key="screen_gamepad"

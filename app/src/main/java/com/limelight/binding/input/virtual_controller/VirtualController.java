@@ -53,6 +53,9 @@ public class VirtualController {
     private final Handler handler;
     private final PreferenceConfiguration prefConfig;
     private TouchHaptics haptics;
+    private final GyroCamera gyro;
+    /** Whether the controls are on screen, so the gyroscope may run. */
+    private boolean shown = false;
 
     private static final String MOUSE_MODE_PREF = "osc_mouse_mode";
 
@@ -103,6 +106,7 @@ public class VirtualController {
         virtualKeyboard.setClickable(true);
         virtualKeyboard.setFocusable(true);
 
+        gyro = new GyroCamera(context, this);
         menu = new OscMenu(context, new MenuActions());
     }
 
@@ -274,6 +278,25 @@ public class VirtualController {
         }
 
         @Override
+        public boolean hasGyro() {
+            return gyro.isAvailable();
+        }
+
+        @Override
+        public String getGyroMode() {
+            return prefConfig.oscGyroMode;
+        }
+
+        @Override
+        public void setGyroMode(String mode) {
+            prefConfig.oscGyroMode = mode;
+            PreferenceManager.getDefaultSharedPreferences(context).edit()
+                    .putString(PreferenceConfiguration.OSC_GYRO_MODE_PREF_STRING, mode)
+                    .apply();
+            updateGyroListening();
+        }
+
+        @Override
         public OscProfiles getProfiles() {
             return new OscProfiles(context);
         }
@@ -302,6 +325,35 @@ public class VirtualController {
                 .getBoolean(MOUSE_MODE_PREF, false);
         refreshLayout();
         menu.show();
+        updateGyroListening();
+    }
+
+    private void updateGyroListening() {
+        gyro.setListening(shown && !PreferenceConfiguration.OSC_GYRO_MODE_OFF.equals(prefConfig.oscGyroMode));
+    }
+
+    /** Whether gyro movement should turn the camera right now. */
+    boolean isGyroEngaged() {
+        if (currentMode != ControllerMode.Active || !isJoystickMode) {
+            return false;
+        }
+        if (PreferenceConfiguration.OSC_GYRO_MODE_ALWAYS.equals(prefConfig.oscGyroMode)) {
+            return true;
+        }
+        if (!PreferenceConfiguration.OSC_GYRO_MODE_AIMING.equals(prefConfig.oscGyroMode)) {
+            return false;
+        }
+        // Aiming means a finger on the camera zone or on an Aim+Fire button
+        for (VirtualControllerElement element : elements) {
+            if (!element.isPressed()) {
+                continue;
+            }
+            if (element.elementId == VirtualControllerElement.EID_RS ||
+                    (element instanceof DigitalButton && ((DigitalButton) element).isAimFire())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Let go of everything held on the controls, so the game is not left with a stuck input. */
@@ -340,12 +392,16 @@ public class VirtualController {
 
         menu.hide();
         virtualKeyboard.setVisibility(View.GONE);
+        shown = false;
+        updateGyroListening();
     }
 
     public void show() {
         updateElementVisibility();
 
         menu.show();
+        shown = true;
+        updateGyroListening();
     }
 
     void updateElementVisibility() {
