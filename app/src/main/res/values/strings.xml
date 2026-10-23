@@ -348,4 +348,24 @@
     <string name="analogscroll_none">None (both sticks move the mouse)</string>
     <string name="analogscroll_right">Right analog stick</string>
     <string name="analogscroll_left">Left analog stick</string>
+    <string name="title_screen_video">Video &amp; network</string>
+    <string name="summary_screen_video">Resolution, frame rate, bitrate, codec, HDR</string>
+    <string name="title_screen_audio">Audio</string>
+    <string name="summary_screen_audio">Speaker setup, audio on the PC</string>
+    <string name="title_screen_onscreen_controls">Touch controls</string>
+    <string name="summary_screen_onscreen_controls">On-screen controller, layout, joysticks, camera, vibration</string>
+    <string name="title_screen_gamepad">Physical gamepads</string>
+    <string name="summary_screen_gamepad">Deadzone, rumble, button layout, motion, touchpad</string>
+    <string name="title_screen_input">Mouse &amp; keyboard</string>
+    <string name="summary_screen_input">Touch as mouse, trackpad, on-screen keyboard</string>
+    <string name="title_screen_ui">Interface &amp; advanced</string>
+    <string name="summary_screen_ui">Language, picture-in-picture, overlays, warnings</string>
+    <string name="category_advanced_video_settings">Advanced video</string>
+    <string name="category_osc_general">General</string>
+    <string name="category_osc_layout">Layout</string>
+    <string name="category_osc_sticks">Joysticks</string>
+    <string name="category_osc_camera">Camera (right joystick)</string>
+    <string name="category_osc_camera_advanced">Camera, advanced</string>
+    <string name="category_osc_keyboard">On-screen keyboard</string>
+    <string name="category_other_settings">Other</string>
 </resources>

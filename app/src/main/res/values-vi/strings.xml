@@ -291,4 +291,24 @@
     <string name="title_checkbox_enable_audiofx">Hỗ trợ bộ cân bằng của hệ thống</string>
     <string name="summary_checkbox_enable_audiofx">Cho phép hiệu ứng âm thanh hoạt động khi stream, nhưng có thể tăng độ trễ âm thanh</string>
     <string name="resolution_prefix_native_portrait">(Dọc)</string>
+    <string name="title_screen_video">Hình ảnh &amp; mạng</string>
+    <string name="summary_screen_video">Độ phân giải, FPS, bitrate, codec, HDR</string>
+    <string name="title_screen_audio">Âm thanh</string>
+    <string name="summary_screen_audio">Cấu hình loa, phát âm thanh trên PC</string>
+    <string name="title_screen_onscreen_controls">Điều khiển cảm ứng</string>
+    <string name="summary_screen_onscreen_controls">Tay cầm ảo, bố cục, joystick, camera, rung</string>
+    <string name="title_screen_gamepad">Tay cầm vật lý</string>
+    <string name="summary_screen_gamepad">Deadzone, rumble, đảo nút, cảm biến chuyển động, touchpad</string>
+    <string name="title_screen_input">Chuột &amp; bàn phím</string>
+    <string name="summary_screen_input">Chạm làm chuột, trackpad, bàn phím ảo</string>
+    <string name="title_screen_ui">Giao diện &amp; nâng cao</string>
+    <string name="summary_screen_ui">Ngôn ngữ, hình trong hình, lớp phủ, cảnh báo</string>
+    <string name="category_advanced_video_settings">Video nâng cao</string>
+    <string name="category_osc_general">Chung</string>
+    <string name="category_osc_layout">Bố cục</string>
+    <string name="category_osc_sticks">Joystick</string>
+    <string name="category_osc_camera">Camera (joystick phải)</string>
+    <string name="category_osc_camera_advanced">Camera nâng cao</string>
+    <string name="category_osc_keyboard">Bàn phím ảo</string>
+    <string name="category_other_settings">Khác</string>
 </resources>

@@ -319,11 +319,12 @@ public class StreamSettings extends Activity {
                 });
             }
 
-            // hide on-screen controls category on non touch screen devices
+            // hide the on-screen controls page on non touch screen devices
             if (!getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN)) {
-                PreferenceCategory category =
-                        (PreferenceCategory) findPreference("category_onscreen_controls");
-                screen.removePreference(category);
+                screen.removePreference(findPreference("screen_onscreen_controls"));
+                PreferenceCategory keyboardCategory =
+                        (PreferenceCategory) findPreference("category_osc_keyboard");
+                ((PreferenceScreen) findPreference("screen_input")).removePreference(keyboardCategory);
             }
 
             // Hide remote desktop mouse mode on pre-Oreo (which doesn't have pointer capture)
