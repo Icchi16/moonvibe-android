@@ -92,7 +92,7 @@ public class VirtualController {
                 VirtualControllerConfigurationLoader.OSC_PREFERENCE, Context.MODE_PRIVATE)
                 .getBoolean(MOUSE_MODE_PREF, false);
 
-        virtualKeyboard = new VirtualKeyboard(context);
+        virtualKeyboard = new VirtualKeyboard(context, this);
         virtualKeyboard.setVisibility(View.GONE);
         virtualKeyboard.setClickable(true);
         virtualKeyboard.setFocusable(true);

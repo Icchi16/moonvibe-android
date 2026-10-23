@@ -3,47 +3,84 @@ package com.limelight.binding.input.virtual_controller;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
+import android.os.Handler;
+import android.os.Looper;
+import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import com.limelight.Game;
 import com.limelight.binding.input.KeyboardTranslator;
 import com.limelight.nvstream.input.KeyboardPacket;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 public class VirtualKeyboard extends LinearLayout {
     private static final long SHIFT_DOUBLE_TAP_TIMEOUT_MS = 400;
+    /** Holding Ctrl, Win or Alt this long locks it down for a one-finger shortcut. */
+    private static final long MODIFIER_LATCH_MS = 400;
+
+    private static final int KEY_HEIGHT_DP = 40;
+    private static final int SHORTCUT_HEIGHT_DP = 34;
+    private static final int POPUP_HEIGHT_DP = 56;
+    private static final int POPUP_MIN_WIDTH_DP = 48;
+
+    private static final String SHORTCUT_PREFIX = "SC:";
 
     private final Game game;
+    private final VirtualController controller;
     private final KeyboardTranslator translator;
+    private final Handler handler = new Handler(Looper.getMainLooper());
+
+    /** Modifiers currently down on the host. */
     private final Set<Integer> activeModifierKeyCodes = new HashSet<>();
+    /** Modifiers a finger is holding right now. */
+    private final Set<Integer> heldModifierKeyCodes = new HashSet<>();
+    /** Ctrl, Win or Alt locked by a long press, released after the next key. */
+    private final Set<Integer> latchedModifierKeyCodes = new HashSet<>();
+    /** Modifiers that were already active when their key went down, so this press releases them. */
+    private final Set<Integer> modifiersToReleaseOnUp = new HashSet<>();
+    /** Held modifiers that another key was typed with, so lifting them must release them. */
+    private final Set<Integer> modifiersUsedWhileHeld = new HashSet<>();
+    private final Map<Integer, Runnable> latchRunnables = new HashMap<>();
     private final Set<Integer> pressedKeyCodes = new HashSet<>();
     private final List<Button> keyButtons = new ArrayList<>();
 
     private boolean isAltLayout = false;
     private boolean isShiftLocked = false;
+    private boolean isCapsOn = false;
+    private boolean modifierUsed = false;
     private long lastShiftTapTime = 0;
 
-    public VirtualKeyboard(Context context) {
+    private TextView keyPopup;
+    private View keyPopupOwner;
+
+    public VirtualKeyboard(Context context, VirtualController controller) {
         super(context);
         this.game = (Game) context;
+        this.controller = controller;
         this.translator = game.getKeyboardTranslator();
-        
+
         setOrientation(VERTICAL);
         setBackgroundColor(0xEE111111);
         setGravity(Gravity.CENTER);
-        
+
         setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
-        setPadding(0, 10, 0, 10);
+        setPadding(0, dp(4), 0, dp(4));
 
         updateLayout();
 
@@ -58,6 +95,11 @@ public class VirtualKeyboard extends LinearLayout {
     private void updateLayout() {
         removeAllViews();
         keyButtons.clear();
+        hideKeyPopup();
+
+        if (controller.getPrefConfig().oscKeyboardShortcuts) {
+            addShortcutRow();
+        }
 
         if (!isAltLayout) {
             // Phone-style alphabet layout with Backspace always within reach.
@@ -76,12 +118,48 @@ public class VirtualKeyboard extends LinearLayout {
         updateKeyVisualState();
     }
 
-    private void addRow(String[] keys) {
+    /** The shortcuts people need most when driving a PC from a phone. */
+    private void addShortcutRow() {
+        LinearLayout row = newRow();
+        addShortcut(row, "Alt+Tab", KeyEvent.KEYCODE_TAB, KeyEvent.KEYCODE_ALT_LEFT);
+        addShortcut(row, "Win+D", KeyEvent.KEYCODE_D, KeyEvent.KEYCODE_META_LEFT);
+        addShortcut(row, "Ctrl+C", KeyEvent.KEYCODE_C, KeyEvent.KEYCODE_CTRL_LEFT);
+        addShortcut(row, "Ctrl+V", KeyEvent.KEYCODE_V, KeyEvent.KEYCODE_CTRL_LEFT);
+        addShortcut(row, "Ctrl+Z", KeyEvent.KEYCODE_Z, KeyEvent.KEYCODE_CTRL_LEFT);
+        addShortcut(row, "Ctrl+Shift+Esc", KeyEvent.KEYCODE_ESCAPE,
+                KeyEvent.KEYCODE_CTRL_LEFT, KeyEvent.KEYCODE_SHIFT_LEFT);
+        addView(row);
+    }
+
+    private void addShortcut(LinearLayout row, String label, final int keyCode, final int... modifiers) {
+        Button b = newKeyButton(SHORTCUT_PREFIX + label, label, 12, 0xFF2A2A2A);
+        LayoutParams lp = new LayoutParams(0, dp(SHORTCUT_HEIGHT_DP), label.length() > 8 ? 1.6f : 1.0f);
+        b.setLayoutParams(lp);
+        b.setOnTouchListener(new OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+                    controller.getHaptics().tick();
+                } else if (event.getActionMasked() == MotionEvent.ACTION_UP) {
+                    v.performClick();
+                    sendShortcut(keyCode, modifiers);
+                }
+                return true;
+            }
+        });
+        row.addView(b);
+    }
+
+    private LinearLayout newRow() {
         LinearLayout row = new LinearLayout(getContext());
         row.setOrientation(HORIZONTAL);
         row.setGravity(Gravity.CENTER);
         row.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
-        
+        return row;
+    }
+
+    private void addRow(String[] keys) {
+        LinearLayout row = newRow();
         for (String key : keys) {
             Button b = createKey(key);
             row.addView(b);
@@ -89,37 +167,50 @@ public class VirtualKeyboard extends LinearLayout {
         addView(row);
     }
 
-    private Button createKey(final String label) {
+    private Button newKeyButton(String tag, String text, float textSizeSp, int color) {
         Button b = new Button(getContext());
-        b.setTag(label);
-        b.setText(getDisplayLabel(label));
+        b.setTag(tag);
+        b.setText(text);
         b.setTextColor(Color.WHITE);
-        b.setTextSize(11);
-        b.setPadding(0, 5, 0, 5);
+        b.setTextSize(TypedValue.COMPLEX_UNIT_SP, textSizeSp);
+        b.setPadding(0, 0, 0, 0);
         b.setAllCaps(false);
         b.setFocusable(false);
         b.setMinWidth(0);
         b.setMinimumWidth(0);
+        b.setMinHeight(0);
+        b.setMinimumHeight(0);
+        b.setSingleLine(true);
         b.setBackgroundTintList(new ColorStateList(
                 new int[][]{
                         new int[]{android.R.attr.state_activated},
                         new int[]{android.R.attr.state_pressed},
                         new int[]{}
                 },
-                new int[]{0xFF2877D4, 0xFF666666, 0xFF3A3A3A}
+                new int[]{0xFF2877D4, 0xFF666666, color}
         ));
-        
-        LayoutParams lp = new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f);
+        keyButtons.add(b);
+        return b;
+    }
+
+    private Button createKey(final String label) {
+        Button b = newKeyButton(label, getDisplayLabel(label), label.length() == 1 ? 16 : 12, 0xFF3A3A3A);
+
+        LayoutParams lp = new LayoutParams(0, dp(KEY_HEIGHT_DP), 1.0f);
         if (label.equals("SPACE")) lp.weight = 2.5f;
         if (label.equals("ENTER") || label.equals("SHIFT") || label.equals("BS")) lp.weight = 1.5f;
         b.setLayoutParams(lp);
-        
+
         final int androidKeyCode = getKeyCode(label);
 
         b.setOnTouchListener(new OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 int action = event.getActionMasked();
+
+                if (action == MotionEvent.ACTION_DOWN) {
+                    controller.getHaptics().tick();
+                }
 
                 if (action == MotionEvent.ACTION_UP) {
                     v.performClick();
@@ -133,21 +224,34 @@ public class VirtualKeyboard extends LinearLayout {
                         updateLayout();
                         return true;
                     }
-                    if (isModifierKeyCode(androidKeyCode)) {
-                        toggleModifier(androidKeyCode, event.getEventTime());
-                        return true;
-                    }
                 }
 
-                if (androidKeyCode == 0 || isModifierKeyCode(androidKeyCode)) {
+                if (androidKeyCode == 0) {
+                    return true;
+                }
+
+                if (isModifierKeyCode(androidKeyCode)) {
+                    handleModifierTouch(androidKeyCode, action, event.getEventTime());
                     return true;
                 }
 
                 if (action == MotionEvent.ACTION_DOWN) {
+                    if (label.length() == 1) {
+                        showKeyPopup(v);
+                    }
                     if (pressedKeyCodes.add(androidKeyCode)) {
+                        modifierUsed = true;
+                        modifiersUsedWhileHeld.addAll(heldModifierKeyCodes);
+                        if (androidKeyCode == KeyEvent.KEYCODE_CAPS_LOCK) {
+                            isCapsOn = !isCapsOn;
+                            updateKeyVisualState();
+                        }
                         sendAndroidKeyEvent(androidKeyCode, KeyboardPacket.KEY_DOWN);
                     }
                 } else if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                    if (keyPopupOwner == v) {
+                        hideKeyPopup();
+                    }
                     if (pressedKeyCodes.remove(androidKeyCode)) {
                         sendAndroidKeyEvent(androidKeyCode, KeyboardPacket.KEY_UP);
                         releaseOneShotModifiers();
@@ -157,7 +261,6 @@ public class VirtualKeyboard extends LinearLayout {
             }
         });
 
-        keyButtons.add(b);
         return b;
     }
 
@@ -166,7 +269,8 @@ public class VirtualKeyboard extends LinearLayout {
             return "⌫";
         }
 
-        if (isModifierActive(KeyEvent.KEYCODE_SHIFT_LEFT)) {
+        boolean shift = isModifierActive(KeyEvent.KEYCODE_SHIFT_LEFT);
+        if (shift) {
             String shiftedLabel = getShiftedLabel(label);
             if (shiftedLabel != null) {
                 return shiftedLabel;
@@ -175,7 +279,8 @@ public class VirtualKeyboard extends LinearLayout {
 
         if (label.length() == 1) {
             char c = label.charAt(0);
-            if (c >= 'A' && c <= 'Z' && !isModifierActive(KeyEvent.KEYCODE_SHIFT_LEFT)) {
+            // Caps Lock flips letters only, and Shift flips them back
+            if (c >= 'A' && c <= 'Z' && shift == isCapsOn) {
                 return label.toLowerCase(Locale.ROOT);
             }
         }
@@ -209,25 +314,70 @@ public class VirtualKeyboard extends LinearLayout {
         }
     }
 
-    private void toggleModifier(int keyCode, long eventTime) {
-        if (keyCode == KeyEvent.KEYCODE_SHIFT_LEFT) {
-            if (!isModifierActive(keyCode)) {
+    /**
+     * Ctrl, Win and Alt act like real keys: a tap sends a press and release (so Win alone opens
+     * Start), holding one while another finger types makes a shortcut, and a long press locks it
+     * down for the next key. Shift stays phone-style: a tap shifts the next key and a double tap
+     * locks it, while holding it works like a real Shift.
+     */
+    private void handleModifierTouch(final int keyCode, int action, long eventTime) {
+        if (action == MotionEvent.ACTION_DOWN) {
+            heldModifierKeyCodes.add(keyCode);
+            if (isModifierActive(keyCode)) {
+                modifiersToReleaseOnUp.add(keyCode);
+            }
+
+            if (keyCode == KeyEvent.KEYCODE_SHIFT_LEFT) {
+                modifierUsed = false;
                 pressModifier(keyCode);
-                isShiftLocked = false;
-                lastShiftTapTime = eventTime;
-            } else if (!isShiftLocked && eventTime - lastShiftTapTime <= SHIFT_DOUBLE_TAP_TIMEOUT_MS) {
-                isShiftLocked = true;
-                lastShiftTapTime = 0;
-            } else {
+            } else if (!isModifierActive(keyCode)) {
+                pressModifier(keyCode);
+                Runnable latch = new Runnable() {
+                    @Override
+                    public void run() {
+                        latchRunnables.remove(keyCode);
+                        latchedModifierKeyCodes.add(keyCode);
+                        controller.getHaptics().press();
+                        updateKeyVisualState();
+                    }
+                };
+                latchRunnables.put(keyCode, latch);
+                handler.postDelayed(latch, MODIFIER_LATCH_MS);
+            }
+        } else if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+            heldModifierKeyCodes.remove(keyCode);
+            cancelLatch(keyCode);
+            boolean wasActive = modifiersToReleaseOnUp.remove(keyCode);
+            boolean usedWhileHeld = modifiersUsedWhileHeld.remove(keyCode);
+
+            if (keyCode == KeyEvent.KEYCODE_SHIFT_LEFT) {
+                if (modifierUsed && !isShiftLocked) {
+                    // Held like a real Shift while typing
+                    releaseModifier(keyCode);
+                } else if (!wasActive) {
+                    // A tap shifts the next key
+                    lastShiftTapTime = eventTime;
+                } else if (!isShiftLocked && eventTime - lastShiftTapTime <= SHIFT_DOUBLE_TAP_TIMEOUT_MS) {
+                    isShiftLocked = true;
+                    lastShiftTapTime = 0;
+                } else {
+                    releaseModifier(keyCode);
+                }
+            } else if (wasActive || usedWhileHeld || !latchedModifierKeyCodes.contains(keyCode)) {
+                // A tap, the end of a held shortcut, or a tap that unlocks a locked key
+                latchedModifierKeyCodes.remove(keyCode);
                 releaseModifier(keyCode);
             }
-        } else if (isModifierActive(keyCode)) {
-            releaseModifier(keyCode);
-        } else {
-            pressModifier(keyCode);
         }
 
         updateKeyVisualState();
+    }
+
+    private void cancelLatch(int keyCode) {
+        Runnable latch = latchRunnables.remove(keyCode);
+        if (latch != null) {
+            handler.removeCallbacks(latch);
+        }
     }
 
     private void pressModifier(int keyCode) {
@@ -247,21 +397,36 @@ public class VirtualKeyboard extends LinearLayout {
         }
     }
 
+    /** After a key is typed, let go of modifiers that were only waiting for it. */
     private void releaseOneShotModifiers() {
-        releaseModifier(KeyEvent.KEYCODE_META_LEFT);
-        releaseModifier(KeyEvent.KEYCODE_ALT_LEFT);
-        releaseModifier(KeyEvent.KEYCODE_CTRL_LEFT);
-        if (!isShiftLocked) {
+        int[] modifiers = {KeyEvent.KEYCODE_META_LEFT, KeyEvent.KEYCODE_ALT_LEFT, KeyEvent.KEYCODE_CTRL_LEFT};
+        for (int keyCode : modifiers) {
+            if (!heldModifierKeyCodes.contains(keyCode)) {
+                latchedModifierKeyCodes.remove(keyCode);
+                releaseModifier(keyCode);
+            }
+        }
+        if (!isShiftLocked && !heldModifierKeyCodes.contains(KeyEvent.KEYCODE_SHIFT_LEFT)) {
             releaseModifier(KeyEvent.KEYCODE_SHIFT_LEFT);
         }
         updateKeyVisualState();
     }
 
     private void releaseAllInput() {
+        hideKeyPopup();
+
         for (int keyCode : new HashSet<>(pressedKeyCodes)) {
             sendAndroidKeyEvent(keyCode, KeyboardPacket.KEY_UP);
         }
         pressedKeyCodes.clear();
+
+        for (int keyCode : new HashSet<>(latchRunnables.keySet())) {
+            cancelLatch(keyCode);
+        }
+        heldModifierKeyCodes.clear();
+        modifiersUsedWhileHeld.clear();
+        latchedModifierKeyCodes.clear();
+        modifiersToReleaseOnUp.clear();
 
         releaseModifier(KeyEvent.KEYCODE_META_LEFT);
         releaseModifier(KeyEvent.KEYCODE_ALT_LEFT);
@@ -270,26 +435,51 @@ public class VirtualKeyboard extends LinearLayout {
         updateKeyVisualState();
     }
 
+    /** Press the modifiers, tap the key, then release the modifiers in reverse order. */
+    private void sendShortcut(int keyCode, int[] modifiers) {
+        byte modifierMask = getActiveModifierMask();
+        List<Integer> pressedModifiers = new ArrayList<>();
+        for (int modifier : modifiers) {
+            if (!isModifierActive(modifier)) {
+                modifierMask |= getModifierFlag(modifier);
+                sendKey(modifier, KeyboardPacket.KEY_DOWN, modifierMask);
+                pressedModifiers.add(modifier);
+            }
+        }
+        sendKey(keyCode, KeyboardPacket.KEY_DOWN, modifierMask);
+        sendKey(keyCode, KeyboardPacket.KEY_UP, modifierMask);
+        for (int i = pressedModifiers.size() - 1; i >= 0; i--) {
+            int modifier = pressedModifiers.get(i);
+            modifierMask &= ~getModifierFlag(modifier);
+            sendKey(modifier, KeyboardPacket.KEY_UP, modifierMask);
+        }
+    }
+
     private void sendAndroidKeyEvent(int keyCode, byte keyAction) {
+        sendKey(keyCode, keyAction, getActiveModifierMask());
+    }
+
+    private void sendKey(int keyCode, byte keyAction, byte modifierMask) {
         short translated = translator.translate(keyCode, -1);
         if (translated != 0) {
-            game.sendKeyboardEvent(translated, keyAction, getActiveModifierMask());
+            game.sendKeyboardEvent(translated, keyAction, modifierMask);
+        }
+    }
+
+    private static byte getModifierFlag(int keyCode) {
+        switch (keyCode) {
+            case KeyEvent.KEYCODE_SHIFT_LEFT: return KeyboardPacket.MODIFIER_SHIFT;
+            case KeyEvent.KEYCODE_CTRL_LEFT: return KeyboardPacket.MODIFIER_CTRL;
+            case KeyEvent.KEYCODE_ALT_LEFT: return KeyboardPacket.MODIFIER_ALT;
+            case KeyEvent.KEYCODE_META_LEFT: return KeyboardPacket.MODIFIER_META;
+            default: return 0;
         }
     }
 
     private byte getActiveModifierMask() {
         byte modifierMask = 0;
-        if (isModifierActive(KeyEvent.KEYCODE_SHIFT_LEFT)) {
-            modifierMask |= KeyboardPacket.MODIFIER_SHIFT;
-        }
-        if (isModifierActive(KeyEvent.KEYCODE_CTRL_LEFT)) {
-            modifierMask |= KeyboardPacket.MODIFIER_CTRL;
-        }
-        if (isModifierActive(KeyEvent.KEYCODE_ALT_LEFT)) {
-            modifierMask |= KeyboardPacket.MODIFIER_ALT;
-        }
-        if (isModifierActive(KeyEvent.KEYCODE_META_LEFT)) {
-            modifierMask |= KeyboardPacket.MODIFIER_META;
+        for (int keyCode : activeModifierKeyCodes) {
+            modifierMask |= getModifierFlag(keyCode);
         }
         return modifierMask;
     }
@@ -308,10 +498,75 @@ public class VirtualKeyboard extends LinearLayout {
     private void updateKeyVisualState() {
         for (Button button : keyButtons) {
             String label = (String) button.getTag();
+            if (label.startsWith(SHORTCUT_PREFIX)) {
+                continue;
+            }
             int keyCode = getKeyCode(label);
             button.setText(getDisplayLabel(label));
-            button.setActivated(isModifierKeyCode(keyCode) && isModifierActive(keyCode));
+            button.setActivated((isModifierKeyCode(keyCode) && isModifierActive(keyCode)) ||
+                    (keyCode == KeyEvent.KEYCODE_CAPS_LOCK && isCapsOn));
         }
+    }
+
+    /**
+     * Show the pressed character above the finger, which covers the key itself. One view is
+     * reused and moved, so showing it costs nothing per key press.
+     */
+    private void showKeyPopup(View key) {
+        if (!(getParent() instanceof ViewGroup)) {
+            return;
+        }
+        ViewGroup parent = (ViewGroup) getParent();
+
+        int width = Math.max((int) (key.getWidth() * 1.4f), dp(POPUP_MIN_WIDTH_DP));
+        int height = dp(POPUP_HEIGHT_DP);
+
+        if (keyPopup == null) {
+            keyPopup = new TextView(getContext());
+            keyPopup.setTextColor(Color.WHITE);
+            keyPopup.setTextSize(TypedValue.COMPLEX_UNIT_SP, 28);
+            keyPopup.setGravity(Gravity.CENTER);
+            GradientDrawable background = new GradientDrawable();
+            background.setColor(0xFF505050);
+            background.setCornerRadius(dp(10));
+            keyPopup.setBackground(background);
+            keyPopup.setElevation(dp(6));
+        }
+        if (keyPopup.getParent() != parent) {
+            if (keyPopup.getParent() instanceof ViewGroup) {
+                ((ViewGroup) keyPopup.getParent()).removeView(keyPopup);
+            }
+            parent.addView(keyPopup, new FrameLayout.LayoutParams(width, height));
+        } else if (keyPopup.getLayoutParams().width != width) {
+            keyPopup.getLayoutParams().width = width;
+            keyPopup.requestLayout();
+        }
+
+        int[] keyLocation = new int[2];
+        int[] parentLocation = new int[2];
+        key.getLocationInWindow(keyLocation);
+        parent.getLocationInWindow(parentLocation);
+        float x = keyLocation[0] - parentLocation[0] + (key.getWidth() - width) / 2f;
+        x = Math.max(0, Math.min(x, parent.getWidth() - width));
+        float y = keyLocation[1] - parentLocation[1] - height - dp(4);
+
+        keyPopup.setText(((Button) key).getText());
+        keyPopup.setX(x);
+        keyPopup.setY(y);
+        keyPopup.setVisibility(VISIBLE);
+        keyPopup.bringToFront();
+        keyPopupOwner = key;
+    }
+
+    private void hideKeyPopup() {
+        if (keyPopup != null) {
+            keyPopup.setVisibility(GONE);
+        }
+        keyPopupOwner = null;
+    }
+
+    private int dp(float value) {
+        return (int) (value * getResources().getDisplayMetrics().density + 0.5f);
     }
 
     @Override
@@ -326,6 +581,9 @@ public class VirtualKeyboard extends LinearLayout {
     @Override
     protected void onDetachedFromWindow() {
         releaseAllInput();
+        if (keyPopup != null && keyPopup.getParent() instanceof ViewGroup) {
+            ((ViewGroup) keyPopup.getParent()).removeView(keyPopup);
+        }
         super.onDetachedFromWindow();
     }
 

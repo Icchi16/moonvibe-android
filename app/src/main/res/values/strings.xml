@@ -212,6 +212,8 @@
     <string name="osc_button_haptics_light">Light</string>
     <string name="osc_button_haptics_medium">Medium</string>
     <string name="osc_button_haptics_strong">Strong</string>
+    <string name="title_osc_keyboard_shortcuts">Shortcut row on the keyboard</string>
+    <string name="summary_osc_keyboard_shortcuts">Show Alt+Tab, Win+D, Ctrl+C, Ctrl+V, Ctrl+Z and Ctrl+Shift+Esc above the on-screen keyboard</string>
     <string name="osc_menu_description">Controls menu</string>
     <string name="osc_menu_gamepad">Gamepad</string>
     <string name="osc_menu_mouse">Mouse</string>

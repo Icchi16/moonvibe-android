@@ -161,6 +161,12 @@
             android:entryValues="@array/osc_button_haptics_values"
             android:defaultValue="medium" />
         <CheckBoxPreference
+            android:key="checkbox_osc_keyboard_shortcuts"
+            android:dependency="checkbox_show_onscreen_controls"
+            android:title="@string/title_osc_keyboard_shortcuts"
+            android:summary="@string/summary_osc_keyboard_shortcuts"
+            android:defaultValue="true" />
+        <CheckBoxPreference
             android:key="checkbox_vibrate_osc"
             android:dependency="checkbox_show_onscreen_controls"
             android:title="@string/title_checkbox_vibrate_osc"

@@ -42,6 +42,8 @@
     <string name="osc_button_haptics_light">Nhẹ</string>
     <string name="osc_button_haptics_medium">Vừa</string>
     <string name="osc_button_haptics_strong">Mạnh</string>
+    <string name="title_osc_keyboard_shortcuts">Hàng phím tắt trên bàn phím ảo</string>
+    <string name="summary_osc_keyboard_shortcuts">Hiện Alt+Tab, Win+D, Ctrl+C, Ctrl+V, Ctrl+Z và Ctrl+Shift+Esc phía trên bàn phím ảo</string>
     <string name="osc_menu_description">Menu điều khiển</string>
     <string name="osc_menu_gamepad">Tay cầm</string>
     <string name="osc_menu_mouse">Chuột</string>
