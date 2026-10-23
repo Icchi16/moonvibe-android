@@ -11,8 +11,10 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.util.DisplayMetrics;
+import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.widget.FrameLayout;
 
 import org.json.JSONException;
@@ -64,6 +66,26 @@ public abstract class VirtualControllerElement extends View {
     private Mode currentMode = Mode.Normal;
 
     private static final float SNAP_THRESHOLD_DP = 8.0f;
+    /** Holding a grouped button this long before dragging moves it alone. */
+    private static final int MOVE_ALONE_HOLD_MS = 500;
+
+    /** Elements being dragged along with this one in the layout editor. */
+    private java.util.List<VirtualControllerElement> moveGroup = new java.util.ArrayList<>();
+    private boolean dragStarted = false;
+
+    private final Runnable moveAloneRunnable = new Runnable() {
+        @Override
+        public void run() {
+            for (VirtualControllerElement element : moveGroup) {
+                if (element != VirtualControllerElement.this) {
+                    element.actionCancel();
+                }
+            }
+            moveGroup.clear();
+            moveGroup.add(VirtualControllerElement.this);
+            performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+        }
+    };
 
     /** Pointer that owns this element; other fingers landing on it are ignored. */
     private int activePointerId = MotionEvent.INVALID_POINTER_ID;
@@ -113,7 +135,7 @@ public abstract class VirtualControllerElement extends View {
 
             // Snap to the centers and edges of other buttons
             for (VirtualControllerElement element : virtualController.getElements()) {
-                if (element == this || !element.isSnapTarget()) continue;
+                if (moveGroup.contains(element) || !element.isSnapTarget()) continue;
 
                 float elementCenterX = element.getX() + element.getWidth() / 2f;
                 float elementCenterY = element.getY() + element.getHeight() / 2f;
@@ -144,18 +166,31 @@ public abstract class VirtualControllerElement extends View {
             }
         }
 
-        FrameLayout.LayoutParams layoutParams = (FrameLayout.LayoutParams) getLayoutParams();
-
-        layoutParams.leftMargin = newPos_x > 0 ? newPos_x : 0;
-        layoutParams.topMargin = newPos_y > 0 ? newPos_y : 0;
-        layoutParams.rightMargin = 0;
-        layoutParams.bottomMargin = 0;
-
-        requestLayout();
+        // Move the whole group by the same amount, stopping when any of it reaches the edge
+        int moveX = newPos_x - (int) getX();
+        int moveY = newPos_y - (int) getY();
+        for (VirtualControllerElement element : moveGroup) {
+            moveX = Math.max(moveX, -(int) element.getX());
+            moveY = Math.max(moveY, -(int) element.getY());
+        }
+        for (VirtualControllerElement element : moveGroup) {
+            element.setPosition((int) element.getX() + moveX, (int) element.getY() + moveY);
+        }
         // Trigger a redraw of the parent to ensure snap lines are visible even outside this view's bounds
         if (getParent() instanceof View) {
             ((View) getParent()).invalidate();
         }
+    }
+
+    private void setPosition(int x, int y) {
+        FrameLayout.LayoutParams layoutParams = (FrameLayout.LayoutParams) getLayoutParams();
+
+        layoutParams.leftMargin = x;
+        layoutParams.topMargin = y;
+        layoutParams.rightMargin = 0;
+        layoutParams.bottomMargin = 0;
+
+        requestLayout();
     }
 
     protected void resizeElement(int pressed_x, int pressed_y, int width, int height) {
@@ -459,9 +494,18 @@ public abstract class VirtualControllerElement extends View {
                 position_pressed_y = event.getY();
                 startSize_x = getWidth();
                 startSize_y = getHeight();
+                dragStarted = false;
 
-                if (virtualController.getControllerMode() == VirtualController.ControllerMode.MoveButtons)
-                    actionEnableMove();
+                if (virtualController.getControllerMode() == VirtualController.ControllerMode.MoveButtons) {
+                    // A/B/X/Y move as one block; holding still first moves just this button
+                    moveGroup = virtualController.getMoveGroup(this);
+                    for (VirtualControllerElement element : moveGroup) {
+                        element.actionEnableMove();
+                    }
+                    if (moveGroup.size() > 1) {
+                        postDelayed(moveAloneRunnable, MOVE_ALONE_HOLD_MS);
+                    }
+                }
                 else if (virtualController.getControllerMode() == VirtualController.ControllerMode.ResizeButtons)
                     actionEnableResize();
 
@@ -470,6 +514,15 @@ public abstract class VirtualControllerElement extends View {
             case MotionEvent.ACTION_MOVE: {
                 switch (currentMode) {
                     case Move: {
+                        if (!dragStarted) {
+                            float slop = ViewConfiguration.get(getContext()).getScaledTouchSlop();
+                            if (Math.hypot(event.getX() - position_pressed_x,
+                                    event.getY() - position_pressed_y) < slop) {
+                                break;
+                            }
+                            dragStarted = true;
+                            removeCallbacks(moveAloneRunnable);
+                        }
                         moveElement(
                                 (int) position_pressed_x,
                                 (int) position_pressed_y,
@@ -493,6 +546,13 @@ public abstract class VirtualControllerElement extends View {
             }
             case MotionEvent.ACTION_CANCEL:
             case MotionEvent.ACTION_UP: {
+                removeCallbacks(moveAloneRunnable);
+                for (VirtualControllerElement element : moveGroup) {
+                    if (element != this) {
+                        element.actionCancel();
+                    }
+                }
+                moveGroup = new java.util.ArrayList<>();
                 actionCancel();
                 return true;
             }

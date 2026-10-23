@@ -228,6 +228,23 @@ public class VirtualController {
         return prefConfig;
     }
 
+    /** Elements that move together with this one in the layout editor. */
+    List<VirtualControllerElement> getMoveGroup(VirtualControllerElement element) {
+        List<VirtualControllerElement> group = new ArrayList<>();
+        if (isFaceButton(element)) {
+            for (VirtualControllerElement other : elements) {
+                if (isFaceButton(other) && other.getVisibility() == View.VISIBLE) {
+                    group.add(other);
+                }
+            }
+        }
+        if (!group.contains(element)) {
+            group.clear();
+            group.add(element);
+        }
+        return group;
+    }
+
     /** Extra reach around single buttons when touch assist is on. */
     private static final float TOUCH_ASSIST_SLOP_DP = 10.0f;
 
