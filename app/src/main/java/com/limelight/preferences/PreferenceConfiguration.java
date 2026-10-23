@@ -35,7 +35,7 @@ public class PreferenceConfiguration {
     private static final String DISABLE_TOASTS_PREF_STRING = "checkbox_disable_warnings";
     private static final String HOST_AUDIO_PREF_STRING = "checkbox_host_audio";
     private static final String DEADZONE_PREF_STRING = "seekbar_deadzone";
-    private static final String OSC_OPACITY_PREF_STRING = "seekbar_osc_opacity";
+    public static final String OSC_OPACITY_PREF_STRING = "seekbar_osc_opacity";
     private static final String LANGUAGE_PREF_STRING = "list_languages";
     private static final String SMALL_ICONS_PREF_STRING = "checkbox_small_icon_mode";
     private static final String MULTI_CONTROLLER_PREF_STRING = "checkbox_multi_controller";
@@ -84,7 +84,7 @@ public class PreferenceConfiguration {
     public static final String OSC_STICK_ANTI_DEADZONE_PREF_STRING = "seekbar_osc_stick_anti_deadzone";
     public static final String OSC_EDIT_STICK_ZONES_PREF_STRING = "checkbox_osc_edit_stick_zones";
     public static final String OSC_TOUCH_ASSIST_PREF_STRING = "checkbox_osc_touch_assist";
-    private static final String OSC_BUTTON_HAPTICS_PREF_STRING = "list_osc_button_haptics";
+    public static final String OSC_BUTTON_HAPTICS_PREF_STRING = "list_osc_button_haptics";
 
     static final String DEFAULT_RESOLUTION = "1280x720";
     static final String DEFAULT_FPS = "60";

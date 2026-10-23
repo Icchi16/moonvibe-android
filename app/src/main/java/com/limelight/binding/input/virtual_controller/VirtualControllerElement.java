@@ -66,6 +66,8 @@ public abstract class VirtualControllerElement extends View {
     private Mode currentMode = Mode.Normal;
 
     private static final float SNAP_THRESHOLD_DP = 8.0f;
+    /** Size of the corner handle that resizes an element in the layout editor. */
+    private static final float RESIZE_HANDLE_DP = 22.0f;
     /** Holding a grouped button this long before dragging moves it alone. */
     private static final int MOVE_ALONE_HOLD_MS = 500;
 
@@ -95,6 +97,19 @@ public abstract class VirtualControllerElement extends View {
 
         this.virtualController = controller;
         this.elementId = elementId;
+    }
+
+    private final android.graphics.Path resizeHandlePath = new android.graphics.Path();
+
+    private float getResizeHandleSize() {
+        float handle = RESIZE_HANDLE_DP * getResources().getDisplayMetrics().density;
+        return Math.min(handle, Math.min(getWidth(), getHeight()) * 0.4f);
+    }
+
+    private boolean isOnResizeHandle(float x, float y) {
+        // The triangle in the bottom right corner, with some extra room for a finger
+        float handle = getResizeHandleSize() * 1.5f;
+        return (getWidth() - x) + (getHeight() - y) <= handle;
     }
 
     private float snapX = -1;
@@ -223,6 +238,19 @@ public abstract class VirtualControllerElement extends View {
 
             int inset = (int) strokeWidth / 2;
             canvas.drawRect(inset, inset, getWidth() - inset, getHeight() - inset, paint);
+
+            if (virtualController.getControllerMode() == VirtualController.ControllerMode.MoveButtons &&
+                    isEditableInLayoutMode()) {
+                // Corner handle for resizing
+                float handle = getResizeHandleSize();
+                resizeHandlePath.reset();
+                resizeHandlePath.moveTo(getWidth(), getHeight() - handle);
+                resizeHandlePath.lineTo(getWidth(), getHeight());
+                resizeHandlePath.lineTo(getWidth() - handle, getHeight());
+                resizeHandlePath.close();
+                paint.setStyle(Paint.Style.FILL);
+                canvas.drawPath(resizeHandlePath, paint);
+            }
         }
 
         // Draw snap lines
@@ -496,7 +524,11 @@ public abstract class VirtualControllerElement extends View {
                 startSize_y = getHeight();
                 dragStarted = false;
 
-                if (virtualController.getControllerMode() == VirtualController.ControllerMode.MoveButtons) {
+                if (virtualController.getControllerMode() == VirtualController.ControllerMode.MoveButtons &&
+                        isOnResizeHandle(event.getX(), event.getY())) {
+                    actionEnableResize();
+                }
+                else if (virtualController.getControllerMode() == VirtualController.ControllerMode.MoveButtons) {
                     // A/B/X/Y move as one block; holding still first moves just this button
                     moveGroup = virtualController.getMoveGroup(this);
                     for (VirtualControllerElement element : moveGroup) {

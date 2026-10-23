@@ -4,15 +4,15 @@
 
 package com.limelight.binding.input.virtual_controller;
 
+import android.app.Activity;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.DisplayMetrics;
+import android.os.SystemClock;
+import android.preference.PreferenceManager;
+import android.view.MotionEvent;
 import android.view.View;
-import android.widget.ImageButton;
-import android.widget.ImageView;
 import android.widget.FrameLayout;
-import android.widget.Toast;
 
 import com.limelight.Game;
 import com.limelight.LimeLog;
@@ -20,8 +20,13 @@ import com.limelight.R;
 import com.limelight.binding.input.ControllerHandler;
 import com.limelight.preferences.PreferenceConfiguration;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class VirtualController {
     public static class ControllerInputContext {
@@ -46,12 +51,16 @@ public class VirtualController {
     private final Context context;
     private final Handler handler;
     private final PreferenceConfiguration prefConfig;
-    private final TouchHaptics haptics;
+    private TouchHaptics haptics;
+
+    private static final String MOUSE_MODE_PREF = "osc_mouse_mode";
 
     private boolean isJoystickMode = true;
-    private ImageButton buttonToggleMode;
-    private ImageButton buttonKeyboard;
+    private final OscMenu menu;
     private VirtualKeyboard virtualKeyboard = null;
+
+    /** Layout of every element when the editor was opened, restored by Cancel. */
+    private final Map<Integer, String> editSnapshot = new HashMap<>();
 
     private final Runnable delayedRetransmitRunnable = new Runnable() {
         @Override
@@ -64,8 +73,6 @@ public class VirtualController {
 
     private ControllerMode currentMode = ControllerMode.Active;
     private final ControllerInputContext inputContext = new ControllerInputContext();
-
-    private ImageButton buttonConfigure;
 
     private final List<VirtualControllerElement> elements = new ArrayList<>();
 
@@ -81,83 +88,172 @@ public class VirtualController {
         this.frame_layout.setClipChildren(false);
         this.frame_layout.setClipToPadding(false);
 
-        buttonToggleMode = new ImageButton(context);
-        buttonToggleMode.setAlpha(0.6f);
-        buttonToggleMode.setFocusable(false);
-        buttonToggleMode.setBackgroundColor(android.graphics.Color.TRANSPARENT);
-        buttonToggleMode.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        buttonToggleMode.setImageResource(R.drawable.ic_gamepad);
-        buttonToggleMode.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                isJoystickMode = !isJoystickMode;
-                updateElementVisibility();
-                buttonToggleMode.setImageResource(isJoystickMode ? R.drawable.ic_gamepad : R.drawable.ic_mouse);
-            }
-        });
-
-        buttonKeyboard = new ImageButton(context);
-        buttonKeyboard.setAlpha(0.6f);
-        buttonKeyboard.setFocusable(false);
-        buttonKeyboard.setBackgroundColor(android.graphics.Color.TRANSPARENT);
-        buttonKeyboard.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        buttonKeyboard.setImageResource(R.drawable.ic_keyboard);
-        buttonKeyboard.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (virtualKeyboard.getVisibility() == View.VISIBLE) {
-                    virtualKeyboard.setVisibility(View.GONE);
-                } else {
-                    virtualKeyboard.setVisibility(View.VISIBLE);
-                    virtualKeyboard.bringToFront();
-                }
-            }
-        });
+        isJoystickMode = !context.getSharedPreferences(
+                VirtualControllerConfigurationLoader.OSC_PREFERENCE, Context.MODE_PRIVATE)
+                .getBoolean(MOUSE_MODE_PREF, false);
 
         virtualKeyboard = new VirtualKeyboard(context);
         virtualKeyboard.setVisibility(View.GONE);
         virtualKeyboard.setClickable(true);
         virtualKeyboard.setFocusable(true);
 
-        buttonConfigure = new ImageButton(context);
-        buttonConfigure.setAlpha(0.5f);
-        buttonConfigure.setFocusable(false);
-        buttonConfigure.setBackgroundColor(android.graphics.Color.TRANSPARENT);
-        buttonConfigure.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        buttonConfigure.setImageResource(R.drawable.ic_settings);
-        buttonConfigure.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                String message;
+        menu = new OscMenu(context, new MenuActions());
+    }
 
-                if (currentMode == ControllerMode.Active){
-                    currentMode = ControllerMode.MoveButtons;
-                    message = "Entering configuration mode (Move buttons)";
-                } else if (currentMode == ControllerMode.MoveButtons) {
-                    currentMode = ControllerMode.ResizeButtons;
-                    message = "Entering configuration mode (Resize buttons)";
-                } else {
-                    currentMode = ControllerMode.Active;
-                    VirtualControllerConfigurationLoader.saveProfile(VirtualController.this, context);
-                    message = "Exiting configuration mode";
-                }
+    private class MenuActions implements OscMenu.Actions {
+        @Override
+        public boolean isMouseMode() {
+            return !isJoystickMode;
+        }
 
-                Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
+        @Override
+        public void setMouseMode(boolean mouseMode) {
+            isJoystickMode = !mouseMode;
+            context.getSharedPreferences(VirtualControllerConfigurationLoader.OSC_PREFERENCE, Context.MODE_PRIVATE)
+                    .edit().putBoolean(MOUSE_MODE_PREF, mouseMode).apply();
+            updateElementVisibility();
+        }
 
-                buttonConfigure.invalidate();
-                frame_layout.invalidate(); // Redraw snap lines if any
+        @Override
+        public void toggleKeyboard() {
+            if (virtualKeyboard.getVisibility() == View.VISIBLE) {
+                virtualKeyboard.setVisibility(View.GONE);
+            } else {
+                virtualKeyboard.setVisibility(View.VISIBLE);
+                virtualKeyboard.bringToFront();
+                menu.bringToFront();
+            }
+        }
 
-                for (VirtualControllerElement element : elements) {
-                    if (element instanceof AnalogStick && ((AnalogStick) element).isFloatingMode()) {
-                        // For floating sticks, they might be invisible in active mode.
-                        // Force a redraw when entering/exiting config mode.
-                        element.invalidate();
-                    }
-                    element.invalidate();
+        @Override
+        public void enterEditMode() {
+            releaseAllInputs();
+            editSnapshot.clear();
+            for (VirtualControllerElement element : elements) {
+                try {
+                    editSnapshot.put(element.elementId, element.getConfiguration().toString());
+                } catch (JSONException e) {
+                    e.printStackTrace();
                 }
             }
-        });
+            currentMode = ControllerMode.MoveButtons;
+            virtualKeyboard.setVisibility(View.GONE);
+            updateElementVisibility();
+            menu.setEditing(true);
+            redrawElements();
+        }
 
+        @Override
+        public void finishEditMode(boolean save) {
+            if (save) {
+                VirtualControllerConfigurationLoader.saveProfile(VirtualController.this, context);
+            } else {
+                for (VirtualControllerElement element : elements) {
+                    String configuration = editSnapshot.get(element.elementId);
+                    if (configuration == null) {
+                        continue;
+                    }
+                    try {
+                        element.loadConfiguration(new JSONObject(configuration));
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+            editSnapshot.clear();
+            currentMode = ControllerMode.Active;
+            updateElementVisibility();
+            menu.setEditing(false);
+            redrawElements();
+        }
+
+        @Override
+        public void resetLayoutToDefault() {
+            // Only the positions on screen change here: Done saves them and Cancel restores the
+            // snapshot taken when the editor opened
+            for (VirtualControllerElement element : elements) {
+                frame_layout.removeView(element);
+            }
+            elements.clear();
+            VirtualControllerConfigurationLoader.createDefaultLayout(VirtualController.this, context);
+            updateElementVisibility();
+            virtualKeyboard.bringToFront();
+            menu.bringToFront();
+            redrawElements();
+        }
+
+        @Override
+        public int getCameraSensitivity() {
+            return prefConfig.oscRightStickCameraSensitivity;
+        }
+
+        @Override
+        public void setCameraSensitivity(int percent) {
+            prefConfig.oscRightStickCameraSensitivity = percent;
+            PreferenceManager.getDefaultSharedPreferences(context).edit()
+                    .putInt(PreferenceConfiguration.OSC_RIGHT_STICK_CAMERA_SENSITIVITY_PREF_STRING, percent)
+                    .apply();
+        }
+
+        @Override
+        public int getOpacity() {
+            return prefConfig.oscOpacity;
+        }
+
+        @Override
+        public void setOpacity(int percent) {
+            prefConfig.oscOpacity = percent;
+            VirtualController.this.setOpacity(percent);
+            PreferenceManager.getDefaultSharedPreferences(context).edit()
+                    .putInt(PreferenceConfiguration.OSC_OPACITY_PREF_STRING, percent)
+                    .apply();
+        }
+
+        @Override
+        public String getHapticsLevel() {
+            return prefConfig.oscButtonHaptics;
+        }
+
+        @Override
+        public void setHapticsLevel(String level) {
+            prefConfig.oscButtonHaptics = level;
+            haptics = new TouchHaptics(context, level);
+            PreferenceManager.getDefaultSharedPreferences(context).edit()
+                    .putString(PreferenceConfiguration.OSC_BUTTON_HAPTICS_PREF_STRING, level)
+                    .apply();
+            haptics.press();
+        }
+
+        @Override
+        public void releaseAllInputs() {
+            VirtualController.this.releaseAllInputs();
+        }
+
+        @Override
+        public void disconnect() {
+            if (context instanceof Activity) {
+                ((Activity) context).finish();
+            }
+        }
+    }
+
+    /** Let go of everything held on the controls, so the game is not left with a stuck input. */
+    private void releaseAllInputs() {
+        long now = SystemClock.uptimeMillis();
+        MotionEvent cancel = MotionEvent.obtain(now, now, MotionEvent.ACTION_CANCEL, 0, 0, 0);
+        for (VirtualControllerElement element : elements) {
+            if (element.isPressed()) {
+                element.onElementTouchEvent(cancel);
+            }
+        }
+        cancel.recycle();
+    }
+
+    private void redrawElements() {
+        frame_layout.invalidate(); // Redraw snap lines if any
+        for (VirtualControllerElement element : elements) {
+            element.invalidate();
+        }
     }
 
     Handler getHandler() {
@@ -175,23 +271,21 @@ public class VirtualController {
             element.setVisibility(View.INVISIBLE);
         }
 
-        buttonConfigure.setVisibility(View.INVISIBLE);
-        buttonToggleMode.setVisibility(View.INVISIBLE);
-        buttonKeyboard.setVisibility(View.INVISIBLE);
+        menu.hide();
         virtualKeyboard.setVisibility(View.GONE);
     }
 
     public void show() {
         updateElementVisibility();
 
-        buttonConfigure.setVisibility(View.VISIBLE);
-        buttonToggleMode.setVisibility(View.VISIBLE);
-        buttonKeyboard.setVisibility(View.VISIBLE);
+        menu.show();
     }
 
     private void updateElementVisibility() {
         for (VirtualControllerElement element : elements) {
-            element.setVisibility(isJoystickMode ? View.VISIBLE : View.INVISIBLE);
+            // The editor shows every control even in mouse mode
+            element.setVisibility(isJoystickMode || currentMode != ControllerMode.Active ?
+                    View.VISIBLE : View.INVISIBLE);
         }
     }
 
@@ -201,9 +295,7 @@ public class VirtualController {
         }
         elements.clear();
 
-        frame_layout.removeView(buttonConfigure);
-        frame_layout.removeView(buttonToggleMode);
-        frame_layout.removeView(buttonKeyboard);
+        menu.detach(frame_layout);
         frame_layout.removeView(virtualKeyboard);
     }
 
@@ -341,26 +433,14 @@ public class VirtualController {
         frame_layout.invalidate(); // Request a redraw for snap lines
         removeElements();
 
-        DisplayMetrics screen = context.getResources().getDisplayMetrics();
+        if (currentMode != ControllerMode.Active) {
+            // A rotation or resize rebuilds everything, so leave the editor without saving
+            editSnapshot.clear();
+            currentMode = ControllerMode.Active;
+            menu.setEditing(false);
+        }
 
-        // Use a more substantial button size (about 10% of screen height)
-        int buttonSize = (int)(screen.heightPixels * 0.10f);
-        int margin = 20;
-
-        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(buttonSize, buttonSize);
-        params.leftMargin = margin;
-        params.topMargin = margin;
-        frame_layout.addView(buttonConfigure, params);
-
-        FrameLayout.LayoutParams toggleParams = new FrameLayout.LayoutParams(buttonSize, buttonSize);
-        toggleParams.leftMargin = margin + buttonSize + margin;
-        toggleParams.topMargin = margin;
-        frame_layout.addView(buttonToggleMode, toggleParams);
-
-        FrameLayout.LayoutParams kbParams = new FrameLayout.LayoutParams(buttonSize, buttonSize);
-        kbParams.leftMargin = margin + buttonSize + margin + buttonSize + margin;
-        kbParams.topMargin = margin;
-        frame_layout.addView(buttonKeyboard, kbParams);
+        menu.attach(frame_layout);
 
         FrameLayout.LayoutParams vkParams = new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -368,22 +448,17 @@ public class VirtualController {
         vkParams.gravity = android.view.Gravity.BOTTOM;
         frame_layout.addView(virtualKeyboard, vkParams);
 
-        // Ensure buttons are on top
-        buttonConfigure.bringToFront();
-        buttonToggleMode.bringToFront();
-        buttonKeyboard.bringToFront();
-
         // Start with the default layout
         VirtualControllerConfigurationLoader.createDefaultLayout(this, context);
 
         // Apply user preferences onto the default layout
         VirtualControllerConfigurationLoader.loadFromPreferences(this, context);
 
-        // Ensure functional buttons and keyboard are ALWAYS on top of joysticks
-        buttonConfigure.bringToFront();
-        buttonToggleMode.bringToFront();
-        buttonKeyboard.bringToFront();
+        updateElementVisibility();
+
+        // Keep the keyboard and the menu above the controls
         virtualKeyboard.bringToFront();
+        menu.bringToFront();
     }
 
     public ControllerMode getControllerMode() {
