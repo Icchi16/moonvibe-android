@@ -1,5 +1,13 @@
 apply plugin: 'com.android.application'
 
+// Release signing details live in keystore.properties next to settings.gradle, which git ignores.
+// See keystore.properties.example. Without it, release builds come out unsigned.
+def keystorePropertiesFile = rootProject.file('keystore.properties')
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+
 android {
     ndkVersion "27.0.12077973"
 
@@ -22,10 +30,12 @@ android {
 
     signingConfigs {
         release {
-            storeFile rootProject.file('moonvibe.jks')
-            storePassword 'moonvibe'
-            keyAlias 'moonvibe'
-            keyPassword 'moonvibe'
+            if (keystorePropertiesFile.exists()) {
+                storeFile rootProject.file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
         }
     }
 
@@ -98,7 +108,9 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
         release {
-            signingConfig signingConfigs.release
+            if (keystorePropertiesFile.exists()) {
+                signingConfig signingConfigs.release
+            }
             // To whomever is releasing/using an APK in release mode with
             // Moonlight's official application ID, please stop. I see every
             // single one of your crashes in my Play Console and it makes
