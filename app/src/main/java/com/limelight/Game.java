@@ -128,6 +128,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private String pcName;
     private String appName;
     private NvApp app;
+    // Kept so the stream menu can quit the app on the host
+    private ComputerDetails.AddressTuple hostAddress;
+    private int hostHttpsPort;
+    private String hostUniqueId;
+    private X509Certificate hostServerCert;
     private float desiredRefreshRate;
 
     private InputCaptureProvider inputCaptureProvider;
@@ -482,8 +487,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 .build();
 
         // Initialize the connection
+        hostAddress = new ComputerDetails.AddressTuple(host, port);
+        hostHttpsPort = httpsPort;
+        hostUniqueId = uniqueId;
+        hostServerCert = serverCert;
         conn = new NvConnection(getApplicationContext(),
-                new ComputerDetails.AddressTuple(host, port),
+                hostAddress,
                 httpsPort, uniqueId, config,
                 PlatformBinding.getCryptoProvider(this), serverCert);
         controllerHandler = new ControllerHandler(this, conn, this, prefConfig);
@@ -2221,6 +2230,49 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     public void stageComplete(String stage) {
+    }
+
+    /** End the stream and quit the running app on the host, like Quit in the app list. */
+    public void terminateSession() {
+        final Context appContext = getApplicationContext();
+        final ComputerDetails.AddressTuple address = hostAddress;
+        final int httpsPort = hostHttpsPort;
+        final String uniqueId = hostUniqueId;
+        final X509Certificate serverCert = hostServerCert;
+        final String quitAppName = app.getAppName();
+        final Handler mainHandler = new Handler(getMainLooper());
+
+        Toast.makeText(this, getResources().getString(R.string.applist_quit_app) + " " + quitAppName + "...",
+                Toast.LENGTH_SHORT).show();
+
+        // Leaving the activity stops the stream; the quit request runs on its own so it
+        // still finishes after this activity is gone.
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                String message;
+                try {
+                    NvHTTP httpConn = new NvHTTP(address, httpsPort, uniqueId, serverCert,
+                            PlatformBinding.getCryptoProvider(appContext));
+                    message = appContext.getResources().getString(httpConn.quitApp() ?
+                            R.string.applist_quit_success : R.string.applist_quit_fail) + " " + quitAppName;
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    message = appContext.getResources().getString(R.string.applist_quit_fail) + " " +
+                            quitAppName + ": " + e.getMessage();
+                }
+
+                final String toastMessage = message;
+                mainHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(appContext, toastMessage, Toast.LENGTH_LONG).show();
+                    }
+                });
+            }
+        }).start();
+
+        finish();
     }
 
     private void stopConnection() {

@@ -63,6 +63,8 @@
     <string name="osc_calibrate_plus">+</string>
     <string name="osc_calibrate_save">Lưu</string>
     <string name="osc_menu_disconnect_confirm">Bấm lần nữa để ngắt kết nối</string>
+    <string name="osc_menu_terminate">Terminate</string>
+    <string name="osc_menu_terminate_confirm">Bấm lần nữa để tắt app trên máy tính</string>
     <string name="osc_edit_done">Xong</string>
     <string name="osc_edit_cancel">Huỷ</string>
     <string name="osc_edit_default">Mặc định</string>

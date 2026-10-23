@@ -266,6 +266,15 @@ public class VirtualController {
                 ((Activity) context).finish();
             }
         }
+
+        @Override
+        public void terminate() {
+            if (context instanceof Game) {
+                ((Game) context).terminateSession();
+            } else {
+                disconnect();
+            }
+        }
     }
 
     /** Let go of everything held on the controls, so the game is not left with a stuck input. */

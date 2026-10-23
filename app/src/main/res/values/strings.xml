@@ -233,6 +233,8 @@
     <string name="osc_calibrate_plus">+</string>
     <string name="osc_calibrate_save">Save</string>
     <string name="osc_menu_disconnect_confirm">Tap again to disconnect</string>
+    <string name="osc_menu_terminate">Terminate</string>
+    <string name="osc_menu_terminate_confirm">Tap again to quit the app on the PC</string>
     <string name="osc_edit_done">Done</string>
     <string name="osc_edit_cancel">Cancel</string>
     <string name="osc_edit_default">Default</string>

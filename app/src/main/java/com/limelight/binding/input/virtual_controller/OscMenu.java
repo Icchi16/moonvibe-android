@@ -38,6 +38,8 @@ class OscMenu {
         void setHapticsLevel(String level);
         void releaseAllInputs();
         void disconnect();
+        /** End the stream and quit the app running on the host. */
+        void terminate();
         /** Hold one stick pushed right by this percentage, or let go of it at 0. */
         void holdCalibrationStick(boolean rightStick, int percent);
         int getStickAntiDeadzone(boolean rightStick);
@@ -50,7 +52,7 @@ class OscMenu {
     private static final int IDLE_FADE_MS = 4000;
     private static final float ACTIVE_ALPHA = 0.9f;
     private static final float IDLE_ALPHA = 0.3f;
-    private static final int DISCONNECT_CONFIRM_MS = 3000;
+    private static final int END_STREAM_CONFIRM_MS = 3000;
     private static final int CALIBRATION_MAX_PERCENT = 50;
 
     private static final int CAMERA_SENSITIVITY_MIN = 25;
@@ -90,8 +92,9 @@ class OscMenu {
     private TextView opacityLabel;
     private SeekBar opacitySeekBar;
     private final TextView[] hapticsChips = new TextView[4];
-    private TextView disconnectItem;
-    private boolean disconnectArmed = false;
+    /** Disconnect or Terminate after its first tap, waiting for the confirming one. */
+    private TextView armedItem;
+    private int armedItemTextRes;
 
     private static final String[] HAPTICS_LEVELS = {
             TouchHaptics.LEVEL_OFF, TouchHaptics.LEVEL_LIGHT, TouchHaptics.LEVEL_MEDIUM, TouchHaptics.LEVEL_STRONG
@@ -104,11 +107,13 @@ class OscMenu {
         }
     };
 
-    private final Runnable disarmDisconnectRunnable = new Runnable() {
+    private final Runnable disarmConfirmRunnable = new Runnable() {
         @Override
         public void run() {
-            disconnectArmed = false;
-            disconnectItem.setText(R.string.osc_menu_disconnect);
+            if (armedItem != null) {
+                armedItem.setText(armedItemTextRes);
+                armedItem = null;
+            }
         }
     };
 
@@ -197,7 +202,7 @@ class OscMenu {
 
     void detach(FrameLayout layout) {
         handler.removeCallbacks(fadeRunnable);
-        handler.removeCallbacks(disarmDisconnectRunnable);
+        handler.removeCallbacks(disarmConfirmRunnable);
         layout.removeView(menuButton);
         layout.removeView(scrim);
         layout.removeView(panel);
@@ -254,8 +259,8 @@ class OscMenu {
         }
         panel.setVisibility(View.GONE);
         scrim.setVisibility(View.GONE);
-        handler.removeCallbacks(disarmDisconnectRunnable);
-        disarmDisconnectRunnable.run();
+        handler.removeCallbacks(disarmConfirmRunnable);
+        disarmConfirmRunnable.run();
         scheduleFade();
     }
 
@@ -395,25 +400,45 @@ class OscMenu {
         content.addView(hapticsRow);
 
         content.addView(divider());
-        disconnectItem = itemText(R.string.osc_menu_disconnect);
-        disconnectItem.setTextColor(DANGER_TEXT_COLOR);
-        disconnectItem.setOnClickListener(new View.OnClickListener() {
+        content.addView(confirmedItem(R.string.osc_menu_disconnect, R.string.osc_menu_disconnect_confirm,
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        actions.disconnect();
+                    }
+                }));
+        content.addView(confirmedItem(R.string.osc_menu_terminate, R.string.osc_menu_terminate_confirm,
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        actions.terminate();
+                    }
+                }));
+
+        return content;
+    }
+
+    /** A red menu item that only acts on a second tap, so a stray touch never ends the stream. */
+    private TextView confirmedItem(final int textRes, final int confirmTextRes, final Runnable action) {
+        final TextView item = itemText(textRes);
+        item.setTextColor(DANGER_TEXT_COLOR);
+        item.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // Ask for a second tap so a stray touch never ends the stream
-                if (!disconnectArmed) {
-                    disconnectArmed = true;
-                    disconnectItem.setText(R.string.osc_menu_disconnect_confirm);
-                    handler.postDelayed(disarmDisconnectRunnable, DISCONNECT_CONFIRM_MS);
+                if (armedItem != item) {
+                    handler.removeCallbacks(disarmConfirmRunnable);
+                    disarmConfirmRunnable.run();
+                    armedItem = item;
+                    armedItemTextRes = textRes;
+                    item.setText(confirmTextRes);
+                    handler.postDelayed(disarmConfirmRunnable, END_STREAM_CONFIRM_MS);
                     return;
                 }
                 closePanel();
-                actions.disconnect();
+                action.run();
             }
         });
-        content.addView(disconnectItem);
-
-        return content;
+        return item;
     }
 
     private LinearLayout buildEditToolbar() {
