@@ -244,11 +244,23 @@ public class VirtualController {
         return (float) Math.sqrt(dx * dx + dy * dy);
     }
 
+    /** Whether (x, y) lies inside the convex polygon whose corners are listed in order. */
+    private static boolean isInsideConvexPolygon(float[] xs, float[] ys, int count, float x, float y) {
+        boolean hasPositive = false, hasNegative = false;
+        for (int i = 0; i < count; i++) {
+            int j = (i + 1) % count;
+            float cross = (xs[j] - xs[i]) * (y - ys[i]) - (ys[j] - ys[i]) * (x - xs[i]);
+            if (cross > 0) hasPositive = true;
+            if (cross < 0) hasNegative = true;
+        }
+        return !(hasPositive && hasNegative);
+    }
+
     /**
      * Finds the button a touch at (x, y) in layout coordinates was most likely aimed at, for a
      * touch that missed every button and would otherwise reach a joystick zone behind them.
-     * The whole A/B/X/Y block, gaps included, belongs to its nearest face button; other buttons
-     * reach a little past their edges.
+     * The gaps between the A/B/X/Y buttons belong to the nearest face button. Outside that,
+     * every button reaches the same short distance past its drawn edge in all directions.
      */
     VirtualControllerElement findTouchAssistTarget(float x, float y) {
         if (prefConfig == null || !prefConfig.oscTouchAssist) {
@@ -257,40 +269,69 @@ public class VirtualController {
 
         float slop = TOUCH_ASSIST_SLOP_DP * context.getResources().getDisplayMetrics().density;
 
-        float faceLeft = Float.MAX_VALUE, faceTop = Float.MAX_VALUE;
-        float faceRight = -Float.MAX_VALUE, faceBottom = -Float.MAX_VALUE;
-        float faceButtonSize = 0;
+        List<VirtualControllerElement> faceButtons = new ArrayList<>();
+        float centroidX = 0, centroidY = 0;
         for (VirtualControllerElement element : elements) {
             if (isFaceButton(element) && element.getVisibility() == View.VISIBLE) {
-                faceLeft = Math.min(faceLeft, element.getX());
-                faceTop = Math.min(faceTop, element.getY());
-                faceRight = Math.max(faceRight, element.getX() + element.getWidth());
-                faceBottom = Math.max(faceBottom, element.getY() + element.getHeight());
-                faceButtonSize = Math.max(faceButtonSize, Math.min(element.getWidth(), element.getHeight()));
+                faceButtons.add(element);
+                centroidX += element.getX() + element.getWidth() / 2f;
+                centroidY += element.getY() + element.getHeight() / 2f;
             }
         }
 
         VirtualControllerElement best = null;
         float bestDistance = Float.MAX_VALUE;
 
-        float faceMargin = Math.max(slop, faceButtonSize * 0.25f);
-        if (faceButtonSize > 0 &&
-                x >= faceLeft - faceMargin && x <= faceRight + faceMargin &&
-                y >= faceTop - faceMargin && y <= faceBottom + faceMargin) {
-            for (VirtualControllerElement element : elements) {
-                if (isFaceButton(element) && element.getVisibility() == View.VISIBLE) {
+        if (faceButtons.size() >= 3) {
+            centroidX /= faceButtons.size();
+            centroidY /= faceButtons.size();
+
+            // Order the button centers around the block to form the area between them
+            final float cx = centroidX, cy = centroidY;
+            List<VirtualControllerElement> ordered = new ArrayList<>(faceButtons);
+            java.util.Collections.sort(ordered, new java.util.Comparator<VirtualControllerElement>() {
+                @Override
+                public int compare(VirtualControllerElement a, VirtualControllerElement b) {
+                    double angleA = Math.atan2(a.getY() + a.getHeight() / 2f - cy, a.getX() + a.getWidth() / 2f - cx);
+                    double angleB = Math.atan2(b.getY() + b.getHeight() / 2f - cy, b.getX() + b.getWidth() / 2f - cx);
+                    return Double.compare(angleA, angleB);
+                }
+            });
+            float[] xs = new float[ordered.size()];
+            float[] ys = new float[ordered.size()];
+            for (int i = 0; i < ordered.size(); i++) {
+                xs[i] = ordered.get(i).getX() + ordered.get(i).getWidth() / 2f;
+                ys[i] = ordered.get(i).getY() + ordered.get(i).getHeight() / 2f;
+            }
+
+            if (isInsideConvexPolygon(xs, ys, ordered.size(), x, y)) {
+                for (VirtualControllerElement element : faceButtons) {
                     float distance = distanceToCenter(element, x, y);
                     if (distance < bestDistance) {
                         best = element;
                         bestDistance = distance;
                     }
                 }
+                return best;
             }
+        }
+
+        // Face buttons are drawn as circles, so give them a circular reach
+        for (VirtualControllerElement element : faceButtons) {
+            float reach = Math.min(element.getWidth(), element.getHeight()) / 2f + slop;
+            float distance = distanceToCenter(element, x, y);
+            if (distance <= reach && distance < bestDistance) {
+                best = element;
+                bestDistance = distance;
+            }
+        }
+        if (best != null) {
             return best;
         }
 
         for (VirtualControllerElement element : elements) {
-            if (element instanceof AnalogStick || element.getVisibility() != View.VISIBLE) {
+            if (element instanceof AnalogStick || isFaceButton(element) ||
+                    element.getVisibility() != View.VISIBLE) {
                 continue;
             }
             if (x >= element.getX() - slop && x <= element.getX() + element.getWidth() + slop &&

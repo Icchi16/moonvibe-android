@@ -61,6 +61,9 @@ public class AnalogStick extends VirtualControllerElement {
     private static final float CAMERA_EDGE_ZONE_DP = 12.0f;
     /** Inward finger jitter tolerated before edge hold lets go. */
     private static final float CAMERA_EDGE_SLACK_DP = 2.0f;
+    /** A camera touch shorter and stiller than this is a tap; tap then press again for R3. */
+    private static final long CAMERA_TAP_MAX_MS = 250;
+    private static final float CAMERA_TAP_MAX_TRAVEL_DP = 10.0f;
     /** Fraction of the ring's travel that already gives full deflection in position mode. */
     private static final float POSITION_FULL_DEFLECTION = 0.85f;
     /** Relative mouse counts sent per dp of finger travel at 100% sensitivity. */
@@ -87,6 +90,10 @@ public class AnalogStick extends VirtualControllerElement {
     private float mouseRemainderY;
     private long cameraNextUpdateTimeMs;
     private boolean cameraCoasting;
+    private float cameraDownX;
+    private float cameraDownY;
+    private float cameraMaxTravelSq;
+    private long cameraLastTapUpTime;
     private long cameraCoastEndTimeMs;
 
     /** Element that receives this touch instead, when it started next to a button. */
@@ -737,6 +744,12 @@ public class AnalogStick extends VirtualControllerElement {
         invalidate();
     }
 
+    private void trackCameraTravel(MotionEvent event) {
+        float dx = event.getX() - cameraDownX;
+        float dy = event.getY() - cameraDownY;
+        cameraMaxTravelSq = Math.max(cameraMaxTravelSq, dx * dx + dy * dy);
+    }
+
     private boolean handleCameraTouchEvent(MotionEvent event) {
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN: {
@@ -762,9 +775,22 @@ public class AnalogStick extends VirtualControllerElement {
                 position_stick_x = summonedCenterX;
                 position_stick_y = summonedCenterY;
 
+                // R3 is a tap followed by another press. Quick consecutive swipes are normal when
+                // turning the camera, so they must not count: the first touch has to be a real tap.
+                boolean afterTap = cameraLastTapUpTime != 0 &&
+                        event.getEventTime() - cameraLastTapUpTime <= timeoutDoubleClick;
+                cameraLastTapUpTime = 0;
+                cameraDownX = event.getX();
+                cameraDownY = event.getY();
+                cameraMaxTravelSq = 0;
+
                 removeCameraUpdateRunnable();
-                // Quick consecutive swipes are normal when turning the camera; never read them as R3
-                handleTouchDown(event, false);
+                if (afterTap) {
+                    // The tap itself already passed the timing check, measured from its lift
+                    click_state = CLICK_STATE.SINGLE;
+                    timeLastClick = event.getEventTime();
+                }
+                handleTouchDown(event, afterTap);
                 if (!isRightStickMouseMode()) {
                     postCameraUpdateRunnable();
                 }
@@ -772,6 +798,7 @@ public class AnalogStick extends VirtualControllerElement {
             }
             case MotionEvent.ACTION_MOVE: {
                 if (isPressed()) {
+                    trackCameraTravel(event);
                     accumulateCameraMovement(event);
                     if (isRightStickMouseMode()) {
                         // No stick output in mouse mode; the knob simply follows the finger
@@ -786,7 +813,14 @@ public class AnalogStick extends VirtualControllerElement {
             case MotionEvent.ACTION_UP: {
                 if (isPressed() && event.getActionMasked() == MotionEvent.ACTION_UP) {
                     // The lift can carry the last bit of finger travel
+                    trackCameraTravel(event);
                     accumulateCameraMovement(event);
+
+                    float tapTravel = CAMERA_TAP_MAX_TRAVEL_DP * getResources().getDisplayMetrics().density;
+                    boolean wasTap = click_state == CLICK_STATE.SINGLE &&
+                            event.getEventTime() - event.getDownTime() <= CAMERA_TAP_MAX_MS &&
+                            cameraMaxTravelSq <= tapTravel * tapTravel;
+                    cameraLastTapUpTime = wasTap ? event.getEventTime() : 0;
                 }
                 removeCameraUpdateRunnable();
                 setPressed(false);
