@@ -352,6 +352,7 @@ public class AnalogStick extends VirtualControllerElement {
         canvas.drawColor(Color.TRANSPARENT);
 
         if (isConfigMode && floatingMode) {
+            paint.clearShadowLayer();
             paint.setStyle(Paint.Style.FILL);
             paint.setColor(0x1100FF00); // Faint green background
             canvas.drawRect(0, 0, getWidth(), getHeight(), paint);
@@ -359,38 +360,34 @@ public class AnalogStick extends VirtualControllerElement {
 
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeWidth(getDefaultStrokeWidth());
+        applyShadow(paint);
 
         float centerX = getCenterX();
         float centerY = getCenterY();
 
         // draw outer circle
-        if (click_state == CLICK_STATE.SINGLE) {
-            paint.setColor(getDefaultColor());
-        } else {
-            paint.setColor(pressedColor);
-        }
+        boolean clicked = click_state != CLICK_STATE.SINGLE;
+        paint.setColor(getOutlineColor(clicked));
         canvas.drawCircle(centerX, centerY, radius_complete, paint);
 
-        paint.setColor(getDefaultColor());
+        paint.setColor(getOutlineColor(false));
         // draw dead zone (inner center circle) - using a filled style for better visibility if small
         paint.setStyle(Paint.Style.FILL);
         canvas.drawCircle(centerX, centerY, radius_dead_zone, paint);
 
         // draw stick depending on state
-        paint.setStyle(Paint.Style.STROKE);
-        switch (stick_state) {
-            case NO_MOVEMENT: {
-                paint.setColor(getDefaultColor());
-                canvas.drawCircle(centerX, centerY, radius_analog_stick, paint);
-                break;
-            }
-            case MOVED_IN_DEAD_ZONE:
-            case MOVED_ACTIVE: {
-                paint.setColor(pressedColor);
-                canvas.drawCircle(position_stick_x, position_stick_y, radius_analog_stick, paint);
-                break;
-            }
+        boolean moved = stick_state != STICK_STATE.NO_MOVEMENT;
+        float stickX = moved ? position_stick_x : centerX;
+        float stickY = moved ? position_stick_y : centerY;
+        int fillColor = getFillColor(moved);
+        if (fillColor != 0) {
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(fillColor);
+            canvas.drawCircle(stickX, stickY, radius_analog_stick, paint);
         }
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setColor(getOutlineColor(moved));
+        canvas.drawCircle(stickX, stickY, radius_analog_stick, paint);
     }
 
     private void updatePosition(long eventTime) {

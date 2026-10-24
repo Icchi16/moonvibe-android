@@ -171,6 +171,18 @@
                 android:entryValues="@array/osc_button_style_values"
                 android:defaultValue="classic" />
             <CheckBoxPreference
+                android:key="checkbox_osc_high_contrast"
+                android:dependency="checkbox_show_onscreen_controls"
+                android:title="@string/title_osc_high_contrast"
+                android:summary="@string/summary_osc_high_contrast"
+                android:defaultValue="true" />
+            <CheckBoxPreference
+                android:key="checkbox_osc_nintendo_labels"
+                android:dependency="checkbox_show_onscreen_controls"
+                android:title="@string/title_osc_nintendo_labels"
+                android:summary="@string/summary_osc_nintendo_labels"
+                android:defaultValue="false" />
+            <CheckBoxPreference
                 android:key="checkbox_osc_floating_joystick"
                 android:dependency="checkbox_show_onscreen_controls"
                 android:title="@string/title_osc_floating_joystick"

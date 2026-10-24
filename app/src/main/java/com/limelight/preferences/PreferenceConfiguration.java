@@ -95,6 +95,8 @@ public class PreferenceConfiguration {
     public static final String OSC_GYRO_SENSITIVITY_PREF_STRING = "seekbar_osc_gyro_sensitivity";
     public static final String OSC_GYRO_INVERT_Y_PREF_STRING = "checkbox_osc_gyro_invert_y";
     public static final String OSC_GYRO_ROLL_PREF_STRING = "checkbox_osc_gyro_roll";
+    public static final String OSC_NINTENDO_LABELS_PREF_STRING = "checkbox_osc_nintendo_labels";
+    public static final String OSC_HIGH_CONTRAST_PREF_STRING = "checkbox_osc_high_contrast";
     private static final String OSC_KEYBOARD_SHORTCUTS_PREF_STRING = "checkbox_osc_keyboard_shortcuts";
 
     static final String DEFAULT_RESOLUTION = "1280x720";
@@ -218,6 +220,10 @@ public class PreferenceConfiguration {
     public int oscGyroSensitivity;
     public boolean oscGyroInvertY;
     public boolean oscGyroRoll;
+    /** Show A/B and X/Y with Nintendo names on the on-screen buttons; what they send stays the same. */
+    public boolean oscNintendoLabels;
+    /** White outlines and labels on a dark fill, readable at low screen brightness. */
+    public boolean oscHighContrast;
 
     public static boolean isNativeResolution(int width, int height) {
         // It's not a native resolution if it matches an existing resolution option
@@ -485,6 +491,8 @@ public class PreferenceConfiguration {
         oscGyroSensitivity = other.oscGyroSensitivity;
         oscGyroInvertY = other.oscGyroInvertY;
         oscGyroRoll = other.oscGyroRoll;
+        oscNintendoLabels = other.oscNintendoLabels;
+        oscHighContrast = other.oscHighContrast;
     }
 
     private static AnalogStickForScrolling getAnalogStickForScrollingValue(Context context) {
@@ -719,6 +727,8 @@ public class PreferenceConfiguration {
         config.oscGyroSensitivity = prefs.getInt(OSC_GYRO_SENSITIVITY_PREF_STRING, 100);
         config.oscGyroInvertY = prefs.getBoolean(OSC_GYRO_INVERT_Y_PREF_STRING, false);
         config.oscGyroRoll = prefs.getBoolean(OSC_GYRO_ROLL_PREF_STRING, false);
+        config.oscNintendoLabels = prefs.getBoolean(OSC_NINTENDO_LABELS_PREF_STRING, false);
+        config.oscHighContrast = prefs.getBoolean(OSC_HIGH_CONTRAST_PREF_STRING, true);
         config.oscRingButtons = OSC_BUTTON_STYLE_RING.equals(
                 prefs.getString(OSC_BUTTON_STYLE_PREF_STRING, OSC_BUTTON_STYLE_CLASSIC));
 

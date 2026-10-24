@@ -306,6 +306,34 @@ public class VirtualController {
         }
 
         @Override
+        public boolean isNintendoLabels() {
+            return prefConfig.oscNintendoLabels;
+        }
+
+        @Override
+        public void setNintendoLabels(boolean nintendo) {
+            prefConfig.oscNintendoLabels = nintendo;
+            PreferenceManager.getDefaultSharedPreferences(context).edit()
+                    .putBoolean(PreferenceConfiguration.OSC_NINTENDO_LABELS_PREF_STRING, nintendo)
+                    .apply();
+            redrawElements();
+        }
+
+        @Override
+        public boolean isHighContrast() {
+            return prefConfig.oscHighContrast;
+        }
+
+        @Override
+        public void setHighContrast(boolean highContrast) {
+            prefConfig.oscHighContrast = highContrast;
+            PreferenceManager.getDefaultSharedPreferences(context).edit()
+                    .putBoolean(PreferenceConfiguration.OSC_HIGH_CONTRAST_PREF_STRING, highContrast)
+                    .apply();
+            redrawElements();
+        }
+
+        @Override
         public OscProfiles getProfiles() {
             return new OscProfiles(context);
         }
@@ -453,34 +481,74 @@ public class VirtualController {
         sendControllerInputContext();
     }
 
-    /** The editor's options for one control: what it sends, and whether it is shown. */
+    boolean useNintendoLabels() {
+        return prefConfig != null && prefConfig.oscNintendoLabels;
+    }
+
+    boolean useHighContrast() {
+        return prefConfig != null && prefConfig.oscHighContrast;
+    }
+
+    /** The name shown for a gamepad button, following the Xbox/Nintendo label choice. */
+    String actionLabel(int action) {
+        return GamepadAction.label(action, useNintendoLabels());
+    }
+
+    /** The editor's options for one control: what it sends, its label, and whether it is shown. */
     void showElementOptions(final VirtualControllerElement element) {
         if (element instanceof RingButtons) {
             showRingOptions((RingButtons) element);
             return;
         }
         final List<String> options = new ArrayList<>();
-        final DigitalButton button = element instanceof DigitalButton && ((DigitalButton) element).canChangeAction() ?
-                (DigitalButton) element : null;
+        final List<Runnable> choices = new ArrayList<>();
+        final DigitalButton anyButton = element instanceof DigitalButton ? (DigitalButton) element : null;
+        final DigitalButton button = anyButton != null && anyButton.canChangeAction() ? anyButton : null;
         if (button != null) {
-            options.add(context.getString(R.string.osc_element_send, GamepadAction.label(button.getAction())));
+            options.add(context.getString(R.string.osc_element_send, actionLabel(button.getAction())));
+            choices.add(new Runnable() {
+                @Override
+                public void run() {
+                    showActionPicker(button);
+                }
+            });
             options.add(context.getString(button.isAimFire() ? R.string.osc_element_aim_fire_on :
                     R.string.osc_element_aim_fire_off));
+            choices.add(new Runnable() {
+                @Override
+                public void run() {
+                    button.setAimFire(!button.isAimFire());
+                }
+            });
+        }
+        if (anyButton != null) {
+            options.add(context.getString(R.string.osc_element_glyph, anyButton.getShownLabel()));
+            choices.add(new Runnable() {
+                @Override
+                public void run() {
+                    showGlyphDialog(anyButton.getGlyph(), anyButton.getAutoLabel(), new GlyphPicked() {
+                        @Override
+                        public void onPicked(String glyph) {
+                            anyButton.setGlyph(glyph);
+                        }
+                    });
+                }
+            });
         }
         options.add(context.getString(element.isHiddenByUser() ? R.string.osc_element_show : R.string.osc_element_hide));
+        choices.add(new Runnable() {
+            @Override
+            public void run() {
+                element.setHiddenByUser(!element.isHiddenByUser());
+                updateElementVisibility();
+            }
+        });
 
         new android.app.AlertDialog.Builder(context)
                 .setItems(options.toArray(new String[0]), new android.content.DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(android.content.DialogInterface dialog, int which) {
-                        if (button != null && which == 0) {
-                            showActionPicker(button);
-                        } else if (button != null && which == 1) {
-                            button.setAimFire(!button.isAimFire());
-                        } else {
-                            element.setHiddenByUser(!element.isHiddenByUser());
-                            updateElementVisibility();
-                        }
+                        choices.get(which).run();
                     }
                 })
                 .show();
@@ -492,8 +560,11 @@ public class VirtualController {
         options[0] = context.getString(R.string.osc_ring_count, count);
         for (int zone = 0; zone <= count; zone++) {
             String label = zone == 0 ?
-                    context.getString(R.string.osc_ring_primary, GamepadAction.label(ring.getZoneAction(zone))) :
-                    context.getString(R.string.osc_ring_small, zone, GamepadAction.label(ring.getZoneAction(zone)));
+                    context.getString(R.string.osc_ring_primary, actionLabel(ring.getZoneAction(zone))) :
+                    context.getString(R.string.osc_ring_small, zone, actionLabel(ring.getZoneAction(zone)));
+            if (ring.getZoneGlyph(zone) != null) {
+                label += " \u00B7 \"" + ring.getZoneGlyph(zone) + "\"";
+            }
             if (ring.isZoneAim(zone)) {
                 label += " \u00B7 Aim+Fire";
             }
@@ -518,12 +589,13 @@ public class VirtualController {
                 .show();
     }
 
-    /** What one button of the ring sends, and whether it aims. */
+    /** What one button of the ring sends, whether it aims, and its label. */
     private void showRingButtonOptions(final RingButtons ring, final int zone) {
         String[] options = {
-                context.getString(R.string.osc_element_send, GamepadAction.label(ring.getZoneAction(zone))),
+                context.getString(R.string.osc_element_send, actionLabel(ring.getZoneAction(zone))),
                 context.getString(ring.isZoneAim(zone) ? R.string.osc_element_aim_fire_on :
                         R.string.osc_element_aim_fire_off),
+                context.getString(R.string.osc_element_glyph, ring.getZoneLabel(zone)),
         };
         new android.app.AlertDialog.Builder(context)
                 .setItems(options, new android.content.DialogInterface.OnClickListener() {
@@ -536,8 +608,16 @@ public class VirtualController {
                                     ring.setZoneAction(zone, action);
                                 }
                             });
-                        } else {
+                        } else if (which == 1) {
                             ring.setZoneAim(zone, !ring.isZoneAim(zone));
+                        } else {
+                            showGlyphDialog(ring.getZoneGlyph(zone), actionLabel(ring.getZoneAction(zone)),
+                                    new GlyphPicked() {
+                                @Override
+                                public void onPicked(String glyph) {
+                                    ring.setZoneGlyph(zone, glyph);
+                                }
+                            });
                         }
                     }
                 })
@@ -578,18 +658,73 @@ public class VirtualController {
     }
 
     private void showActionPicker(int current, final ActionPicked callback) {
+        // The list always reads A, B, X, Y in the names the buttons show
+        final boolean nintendo = useNintendoLabels();
         new android.app.AlertDialog.Builder(context)
                 .setTitle(R.string.osc_element_send_title)
-                .setSingleChoiceItems(GamepadAction.pickerLabels(), current,
+                .setSingleChoiceItems(GamepadAction.pickerLabels(),
+                        nintendo ? GamepadAction.nintendoTwin(current) : current,
                         new android.content.DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(android.content.DialogInterface dialog, int which) {
-                        callback.onPicked(which);
+                        callback.onPicked(nintendo ? GamepadAction.nintendoTwin(which) : which);
                         dialog.dismiss();
                     }
                 })
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
+    }
+
+    private interface GlyphPicked {
+        /** @param glyph the text to show, or null to show the button it sends */
+        void onPicked(String glyph);
+    }
+
+    private static final int MAX_GLYPH_LENGTH = 6;
+
+    private void showGlyphDialog(String current, String autoLabel, final GlyphPicked callback) {
+        final android.widget.EditText input = new android.widget.EditText(context);
+        input.setSingleLine(true);
+        input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(MAX_GLYPH_LENGTH)});
+        input.setHint(autoLabel);
+        if (current != null) {
+            input.setText(current);
+            input.selectAll();
+        }
+
+        android.widget.TextView hint = new android.widget.TextView(context);
+        hint.setText(context.getString(R.string.osc_element_glyph_hint, autoLabel));
+
+        android.widget.LinearLayout container = new android.widget.LinearLayout(context);
+        container.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int padding = (int) (20 * context.getResources().getDisplayMetrics().density);
+        container.setPadding(padding, padding / 2, padding, 0);
+        container.addView(input);
+        container.addView(hint);
+
+        android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(context)
+                .setTitle(R.string.osc_element_glyph_title)
+                .setView(container)
+                .setPositiveButton(android.R.string.ok, new android.content.DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(android.content.DialogInterface dialog, int which) {
+                        String glyph = input.getText().toString().trim();
+                        callback.onPicked(glyph.isEmpty() ? null : glyph);
+                    }
+                })
+                .setNeutralButton(R.string.osc_element_glyph_auto, new android.content.DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(android.content.DialogInterface dialog, int which) {
+                        callback.onPicked(null);
+                    }
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .create();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE);
+        }
+        dialog.show();
+        input.requestFocus();
     }
 
     public void removeElements() {

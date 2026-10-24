@@ -42,6 +42,8 @@ public class RingButtons extends VirtualControllerElement {
 
     /** Aim+Fire per zone: after pressing, dragging the same finger turns the camera. */
     private final boolean[] zoneAim = new boolean[MAX_SMALL + 1];
+    /** Text the user chose to show on each button instead of its name, or null. */
+    private final String[] zoneGlyphs = new String[MAX_SMALL + 1];
     /** Where each finger on an Aim+Fire zone went down, until it starts aiming. */
     private final SparseArray<float[]> aimDownPoints = new SparseArray<>();
     /** Camera turning for each finger that is aiming. */
@@ -151,26 +153,41 @@ public class RingButtons extends VirtualControllerElement {
         float cy = primaryCenterY();
         paint.setStrokeWidth(getDefaultStrokeWidth());
 
-        drawButton(canvas, cx, cy, RingGeometry.PRIMARY_RADIUS * side, GamepadAction.label(primaryAction),
+        applyShadow(paint);
+        drawButton(canvas, cx, cy, RingGeometry.PRIMARY_RADIUS * side, getZoneLabel(RingGeometry.ZONE_PRIMARY),
                 zonePressCounts[RingGeometry.ZONE_PRIMARY] > 0, zoneAim[RingGeometry.ZONE_PRIMARY]);
         for (int i = 0; i < smallCount; i++) {
             double angle = Math.toRadians(RingGeometry.smallAngle(i, smallCount));
             float x = cx + (float) Math.cos(angle) * RingGeometry.SMALL_DISTANCE * side;
             float y = cy + (float) Math.sin(angle) * RingGeometry.SMALL_DISTANCE * side;
-            drawButton(canvas, x, y, RingGeometry.SMALL_RADIUS * side, GamepadAction.label(smallActions[i]),
+            drawButton(canvas, x, y, RingGeometry.SMALL_RADIUS * side, getZoneLabel(i + 1),
                     zonePressCounts[i + 1] > 0, zoneAim[i + 1]);
         }
     }
 
     private void drawButton(Canvas canvas, float x, float y, float radius, String label,
                             boolean pressed, boolean aim) {
-        paint.setColor(pressed ? pressedColor : getDefaultColor());
+        float circleRadius = radius - paint.getStrokeWidth() * (isHighContrast() ? 1.5f : 1);
+        int fillColor = getFillColor(pressed);
+        if (fillColor != 0) {
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(fillColor);
+            canvas.drawCircle(x, y, circleRadius, paint);
+        }
+        paint.setColor(getOutlineColor(pressed));
         paint.setStyle(Paint.Style.STROKE);
-        canvas.drawCircle(x, y, radius - paint.getStrokeWidth(), paint);
+        canvas.drawCircle(x, y, circleRadius, paint);
 
         paint.setStyle(Paint.Style.FILL);
+        paint.setColor(getLabelColor(pressed));
         paint.setTextAlign(Paint.Align.CENTER);
-        paint.setTextSize(radius * (label.length() > 2 ? 0.45f : 0.7f));
+        paint.setTextSize(radius * 0.7f);
+        // Shrink longer labels to fit inside the circle
+        float maxWidth = circleRadius * 1.6f;
+        float textWidth = paint.measureText(label);
+        if (textWidth > maxWidth) {
+            paint.setTextSize(paint.getTextSize() * maxWidth / textWidth);
+        }
         canvas.drawText(label, x, y + paint.getTextSize() * 0.36f, paint);
 
         if (aim) {
@@ -322,6 +339,20 @@ public class RingButtons extends VirtualControllerElement {
         aimDownPoints.clear();
     }
 
+    String getZoneGlyph(int zone) {
+        return zoneGlyphs[zone];
+    }
+
+    void setZoneGlyph(int zone, String glyph) {
+        zoneGlyphs[zone] = glyph == null || glyph.isEmpty() ? null : glyph;
+        invalidate();
+    }
+
+    /** What one button shows: its chosen text, or the button it sends. */
+    String getZoneLabel(int zone) {
+        return zoneGlyphs[zone] != null ? zoneGlyphs[zone] : virtualController.actionLabel(getZoneAction(zone));
+    }
+
     // --- Saving ---
 
     @Override
@@ -339,6 +370,11 @@ public class RingButtons extends VirtualControllerElement {
             aim.put(zoneAimed);
         }
         configuration.put("AIM", aim);
+        JSONArray glyphs = new JSONArray();
+        for (String glyph : zoneGlyphs) {
+            glyphs.put(glyph != null ? glyph : "");
+        }
+        configuration.put("GLYPH", glyphs);
         return configuration;
     }
 
@@ -357,6 +393,11 @@ public class RingButtons extends VirtualControllerElement {
         JSONArray aim = configuration.optJSONArray("AIM");
         for (int i = 0; i < zoneAim.length; i++) {
             zoneAim[i] = aim != null && aim.optBoolean(i, false);
+        }
+        JSONArray glyphs = configuration.optJSONArray("GLYPH");
+        for (int i = 0; i < zoneGlyphs.length; i++) {
+            String glyph = glyphs != null ? glyphs.optString(i, "") : "";
+            zoneGlyphs[i] = glyph.isEmpty() ? null : glyph;
         }
         invalidate();
     }

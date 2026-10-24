@@ -54,6 +54,29 @@ final class GamepadAction {
         return isValid(action) ? LABELS[action] : "?";
     }
 
+    /**
+     * The name shown for an action. Nintendo controllers print A/B and X/Y the other way round,
+     * so with Nintendo labels the button that sends Xbox B is called A, and so on.
+     */
+    static String label(int action, boolean nintendo) {
+        return label(nintendo ? nintendoTwin(action) : action);
+    }
+
+    /** The action in the same spot on a Nintendo controller: A and B swap, X and Y swap. */
+    static int nintendoTwin(int action) {
+        switch (action) {
+            case A: return B;
+            case B: return A;
+            case X: return Y;
+            case Y: return X;
+            default: return action;
+        }
+    }
+
+    /**
+     * Names for the picker, in A, B, X, Y order. Entry i stands for action
+     * {@code nintendo ? nintendoTwin(i) : i}.
+     */
     static String[] pickerLabels() {
         return PICKER_LABELS.clone();
     }

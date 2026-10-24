@@ -372,7 +372,59 @@ public abstract class VirtualControllerElement extends View {
 
     protected int getDefaultStrokeWidth() {
         DisplayMetrics screen = getResources().getDisplayMetrics();
-        return (int)(screen.heightPixels*0.004f);
+        // High contrast outlines are half again as thick
+        return (int)(screen.heightPixels * (isHighContrast() ? 0.006f : 0.004f));
+    }
+
+    // --- High contrast look: white outlines and labels on a dark fill, readable on dim screens ---
+
+    protected boolean isHighContrast() {
+        return virtualController.useHighContrast();
+    }
+
+    private boolean isEditing() {
+        return virtualController.getControllerMode() != VirtualController.ControllerMode.Active;
+    }
+
+    /** The alpha the opacity setting gives. */
+    private int opacityAlpha() {
+        return normalColor >>> 24;
+    }
+
+    private static int withAlpha(int color, float alpha) {
+        return (Math.max(0, Math.min(255, Math.round(alpha))) << 24) | (color & 0x00FFFFFF);
+    }
+
+    protected int getOutlineColor(boolean pressed) {
+        if (!isHighContrast() || isEditing()) {
+            // The editor keeps its move/resize colours
+            return pressed ? pressedColor : getDefaultColor();
+        }
+        return withAlpha(Color.WHITE, pressed ? 255 : opacityAlpha());
+    }
+
+    /** The colour inside a button, or 0 to leave it see-through. */
+    protected int getFillColor(boolean pressed) {
+        if (!isHighContrast()) {
+            return 0;
+        }
+        return pressed ? withAlpha(Color.WHITE, opacityAlpha() * 0.85f) : withAlpha(Color.BLACK, opacityAlpha() * 0.35f);
+    }
+
+    protected int getLabelColor(boolean pressed) {
+        if (!isHighContrast()) {
+            return pressed ? pressedColor : getDefaultColor();
+        }
+        return pressed ? Color.BLACK : withAlpha(Color.WHITE, opacityAlpha());
+    }
+
+    /** A soft dark edge around white strokes and text, so they also stand out over bright scenes. */
+    protected void applyShadow(Paint paint) {
+        if (isHighContrast()) {
+            paint.setShadowLayer(getDefaultStrokeWidth(), 0, 0, withAlpha(Color.BLACK, opacityAlpha() * 0.6f));
+        } else {
+            paint.clearShadowLayer();
+        }
     }
 
     protected void showConfigurationDialog() {

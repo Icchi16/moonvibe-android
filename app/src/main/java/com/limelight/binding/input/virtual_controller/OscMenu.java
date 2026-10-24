@@ -46,6 +46,10 @@ class OscMenu {
         void disconnect();
         /** End the stream and quit the app running on the host. */
         void terminate();
+        boolean isNintendoLabels();
+        void setNintendoLabels(boolean nintendo);
+        boolean isHighContrast();
+        void setHighContrast(boolean highContrast);
         boolean hasGyro();
         String getGyroMode();
         void setGyroMode(String mode);
@@ -124,6 +128,10 @@ class OscMenu {
     private SeekBar opacitySeekBar;
     private final TextView[] hapticsChips = new TextView[4];
     private final TextView[] gyroChips = new TextView[3];
+    private TextView contrastChip;
+    private TextView classicLookChip;
+    private TextView xboxLabelsChip;
+    private TextView nintendoLabelsChip;
     private View gyroSection;
     /** Disconnect or Terminate after its first tap, waiting for the confirming one. */
     private TextView armedItem;
@@ -351,6 +359,13 @@ class OscMenu {
         opacitySeekBar.setProgress(opacity);
         opacityLabel.setText(context.getString(R.string.osc_menu_opacity, opacity));
 
+        boolean highContrast = actions.isHighContrast();
+        setChipSelected(contrastChip, highContrast);
+        setChipSelected(classicLookChip, !highContrast);
+        boolean nintendo = actions.isNintendoLabels();
+        setChipSelected(xboxLabelsChip, !nintendo);
+        setChipSelected(nintendoLabelsChip, nintendo);
+
         gyroSection.setVisibility(actions.hasGyro() ? View.VISIBLE : View.GONE);
         String gyroMode = actions.getGyroMode();
         for (int i = 0; i < GYRO_MODES.length; i++) {
@@ -467,6 +482,54 @@ class OscMenu {
             }
         });
         content.addView(opacitySeekBar, seekBarParams());
+
+        TextView lookLabel = label();
+        lookLabel.setText(R.string.osc_menu_look);
+        content.addView(lookLabel);
+        LinearLayout lookRow = chipRow();
+        contrastChip = chip(R.string.osc_look_contrast);
+        classicLookChip = chip(R.string.osc_look_classic);
+        contrastChip.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                actions.setHighContrast(true);
+                refreshPanel();
+            }
+        });
+        classicLookChip.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                actions.setHighContrast(false);
+                refreshPanel();
+            }
+        });
+        addChip(lookRow, contrastChip);
+        addChip(lookRow, classicLookChip);
+        content.addView(lookRow);
+
+        TextView labelsLabel = label();
+        labelsLabel.setText(R.string.osc_menu_labels);
+        content.addView(labelsLabel);
+        LinearLayout labelsRow = chipRow();
+        xboxLabelsChip = chip(R.string.osc_labels_xbox);
+        nintendoLabelsChip = chip(R.string.osc_labels_nintendo);
+        xboxLabelsChip.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                actions.setNintendoLabels(false);
+                refreshPanel();
+            }
+        });
+        nintendoLabelsChip.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                actions.setNintendoLabels(true);
+                refreshPanel();
+            }
+        });
+        addChip(labelsRow, xboxLabelsChip);
+        addChip(labelsRow, nintendoLabelsChip);
+        content.addView(labelsRow);
 
         LinearLayout gyroBlock = new LinearLayout(context);
         gyroBlock.setOrientation(LinearLayout.VERTICAL);

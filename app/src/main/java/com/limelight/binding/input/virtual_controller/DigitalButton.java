@@ -67,6 +67,9 @@ public class DigitalButton extends VirtualControllerElement {
     private int action = -1;
     private boolean actionDown = false;
 
+    /** Text the user chose to show instead of the button name, or null. */
+    private String glyph = null;
+
     /** Aim+Fire: after pressing, dragging the same finger turns the camera. */
     private boolean aimFire = false;
     private CameraDrag cameraDrag;
@@ -166,6 +169,24 @@ public class DigitalButton extends VirtualControllerElement {
         invalidate();
     }
 
+    String getGlyph() {
+        return glyph;
+    }
+
+    void setGlyph(String glyph) {
+        this.glyph = glyph == null || glyph.isEmpty() ? null : glyph;
+        invalidate();
+    }
+
+    /** What the button shows without a chosen label: the button it sends. */
+    String getAutoLabel() {
+        return canChangeAction() ? virtualController.actionLabel(action) : text;
+    }
+
+    String getShownLabel() {
+        return glyph != null ? glyph : getAutoLabel();
+    }
+
     boolean isAimFire() {
         return aimFire;
     }
@@ -194,12 +215,16 @@ public class DigitalButton extends VirtualControllerElement {
         if (aimFire) {
             configuration.put("AIM", true);
         }
+        if (glyph != null) {
+            configuration.put("GLYPH", glyph);
+        }
         return configuration;
     }
 
     @Override
     public void loadConfiguration(JSONObject configuration) throws JSONException {
         super.loadConfiguration(configuration);
+        setGlyph(configuration.optString("GLYPH", null));
         if (canChangeAction()) {
             int savedAction = configuration.optInt("ACTION", defaultAction);
             action = GamepadAction.isValid(savedAction) ? savedAction : defaultAction;
@@ -223,34 +248,51 @@ public class DigitalButton extends VirtualControllerElement {
         // set transparent background
         canvas.drawColor(Color.TRANSPARENT);
 
-        paint.setTextSize(getPercent(getWidth(), 25));
-        paint.setTextAlign(Paint.Align.CENTER);
-        paint.setStrokeWidth(getDefaultStrokeWidth());
+        boolean pressed = isPressed();
+        float strokeWidth = getDefaultStrokeWidth();
+        applyShadow(paint);
 
-        paint.setColor(isPressed() ? pressedColor : getDefaultColor());
-        paint.setStyle(Paint.Style.STROKE);
-
-        rect.left = rect.top = paint.getStrokeWidth();
+        // Leave room for the shadow around the outline
+        rect.left = rect.top = strokeWidth * (isHighContrast() ? 1.5f : 1);
         rect.right = getWidth() - rect.left;
         rect.bottom = getHeight() - rect.top;
 
+        int fillColor = getFillColor(pressed);
+        if (fillColor != 0) {
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(fillColor);
+            canvas.drawOval(rect, paint);
+        }
+
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeWidth(strokeWidth);
+        paint.setColor(getOutlineColor(pressed));
         canvas.drawOval(rect, paint);
 
-        if (icon != -1) {
+        if (icon != -1 && glyph == null) {
             Drawable d = getResources().getDrawable(icon);
             d.setBounds(5, 5, getWidth() - 5, getHeight() - 5);
             d.draw(canvas);
         } else {
+            String label = getShownLabel();
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTextSize(getPercent(getWidth(), 25));
+            // Shrink longer labels to fit inside the button
+            float maxWidth = rect.width() * 0.8f;
+            float textWidth = paint.measureText(label);
+            if (textWidth > maxWidth) {
+                paint.setTextSize(paint.getTextSize() * maxWidth / textWidth);
+            }
             paint.setStyle(Paint.Style.FILL_AND_STROKE);
-            paint.setStrokeWidth(getDefaultStrokeWidth()/2);
-            // A remapped button shows the button it sends
-            String label = action != defaultAction ? GamepadAction.label(action) : text;
-            canvas.drawText(label, getPercent(getWidth(), 50), getPercent(getHeight(), 63), paint);
+            paint.setStrokeWidth(strokeWidth / 2);
+            paint.setColor(getLabelColor(pressed));
+            canvas.drawText(label, getPercent(getWidth(), 50), getHeight() / 2f + paint.getTextSize() * 0.36f, paint);
         }
 
         if (aimFire) {
             // A small dot in the top right marks a button that also aims
             paint.setStyle(Paint.Style.FILL);
+            paint.setColor(getLabelColor(pressed));
             float dotRadius = getPercent(Math.min(getWidth(), getHeight()), 7);
             canvas.drawCircle(getWidth() - dotRadius * 2.2f, dotRadius * 2.2f, dotRadius, paint);
         }

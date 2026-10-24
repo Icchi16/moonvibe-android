@@ -57,6 +57,8 @@ public class OscProfiles {
             PreferenceConfiguration.OSC_GYRO_SENSITIVITY_PREF_STRING,
             PreferenceConfiguration.OSC_GYRO_INVERT_Y_PREF_STRING,
             PreferenceConfiguration.OSC_GYRO_ROLL_PREF_STRING,
+            PreferenceConfiguration.OSC_NINTENDO_LABELS_PREF_STRING,
+            PreferenceConfiguration.OSC_HIGH_CONTRAST_PREF_STRING,
     };
 
     public static class Profile {
